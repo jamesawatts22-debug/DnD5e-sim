@@ -3,6 +3,10 @@ This project started as a proof of concept for my python studies and has quickly
 What started as a dice roller for DnD, turned into a hit calculator, then became a CLI game. Check previous Commits for Simulator.py if you want to play the CLI version!
 Now I'm migrating to Pygame, and creating something I can also plug API's into as a learning experience.
 
+<img width="1301" height="759" alt="image" src="https://github.com/user-attachments/assets/1cd77e76-837e-4f59-b4e3-64af147e4c9a" />  <img width="1287" height="761" alt="image" src="https://github.com/user-attachments/assets/24185e6d-84ab-402c-a832-174fc0736510" />
+
+
+
 --- CURRENT FEATURES ---
 1. Implimented a class system similar to Dnd, Multiclassing friendly!
 2. Dice based combat with status effects like Advantage, and much more!
