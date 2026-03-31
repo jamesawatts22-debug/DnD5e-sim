@@ -99,3 +99,9 @@ class BackgroundManager:
         return BackgroundManager.load_bg(
             os.path.join(ASSETS_DIR, "game_over.png")
         )
+
+    @staticmethod
+    def get_title_bg():
+        return BackgroundManager.load_bg(
+            os.path.join(ASSETS_DIR, "title.png")
+        )

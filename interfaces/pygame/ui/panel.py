@@ -1,9 +1,9 @@
 import pygame
-from core.game_rules.constants import scale_x, scale_y
+from core.game_rules.constants import scale_x, scale_y, COLOR_GOLD
 
 def draw_text_outlined(screen, text, font, color, x, y, outline_color=(0,0,0), outline_width=2):
     """Draws text with a simple outline for readability."""
-    # Draw outline in 4-8 directions
+    # Draw outline
     for dx in range(-outline_width, outline_width + 1):
         for dy in range(-outline_width, outline_width + 1):
             if dx == 0 and dy == 0: continue
@@ -22,22 +22,22 @@ class Panel:
         y,
         width,
         height,
-        bg_color=(40, 40, 40),
-        border_color=(255, 255, 255),
+        bg_color=(30, 30, 50),
+        border_color=COLOR_GOLD,
         border_width=2,
         padding=10,
         centered=False,
         border_radius=10,
-        alpha=255
+        alpha=220
     ):
         """
-        x, y = position (or center if centered=True)
-        width, height = panel size (base resolution values, will be scaled)
+        x, y = base resolution position (will be scaled)
+        width, height = base resolution size (will be scaled)
         """
-        self.x = x
-        self.y = y
-        self.width = scale_x(width)
-        self.height = scale_y(height)
+        self.raw_x = x
+        self.raw_y = y
+        self.raw_w = width
+        self.raw_h = height
 
         self.bg_color = bg_color
         self.border_color = border_color
@@ -49,44 +49,34 @@ class Panel:
         self.alpha = alpha
 
     def get_rect(self):
+        # Scale EVERYTHING consistently
+        sx, sy = scale_x(self.raw_x), scale_y(self.raw_y)
+        sw, sh = scale_x(self.raw_w), scale_y(self.raw_h)
+
         if self.centered:
-            return pygame.Rect(
-                self.x - self.width // 2,
-                self.y,
-                self.width,
-                self.height
-            )
+            return pygame.Rect(sx - sw // 2, sy, sw, sh)
         else:
-            return pygame.Rect(self.x, self.y, self.width, self.height)
+            return pygame.Rect(sx, sy, sw, sh)
 
     def draw(self, screen):
         rect = self.get_rect()
         
         if self.alpha < 255:
-            # Create a surface for transparency
-            temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            temp_rect = pygame.Rect(0, 0, self.width, self.height)
+            temp_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            temp_rect = pygame.Rect(0, 0, rect.width, rect.height)
             
-            # Background
             pygame.draw.rect(temp_surface, (*self.bg_color, self.alpha), temp_rect, border_radius=self.border_radius)
-            
-            # Border
             pygame.draw.rect(temp_surface, (*self.border_color, self.alpha), temp_rect, self.border_width, border_radius=self.border_radius)
             
             screen.blit(temp_surface, rect.topleft)
         else:
-            # Background
             pygame.draw.rect(screen, self.bg_color, rect, border_radius=self.border_radius)
-
-            # Border
             pygame.draw.rect(screen, self.border_color, rect, self.border_width, border_radius=self.border_radius)
 
-        return rect  # useful for aligning text inside
+        return rect
 
     def draw_text(self, screen, text, font, color=(255,255,255), center=False, y_offset=0):
         rect = self.get_rect()
-
-        # Measure first for centering
         text_size = font.size(text)
 
         if center:
@@ -95,5 +85,4 @@ class Panel:
             text_x = rect.x + self.padding
 
         text_y = rect.y + self.padding + scale_y(y_offset)
-
         return draw_text_outlined(screen, text, font, color, text_x, text_y)

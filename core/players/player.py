@@ -1,4 +1,4 @@
-﻿import pprint
+import pprint
 import json
 import os
 
@@ -22,27 +22,43 @@ weapons_data = load_weapons()
 
 def get_weapon_stats(weapon_name):
     weapon_key = (weapon_name or 'unarmed').lower()
-
-    # Access weapons_list correctly (it's a flat dict of weapon names in Weapons.json)
-    # Note: original code had .values() loop which might be for nested structure
-    # but based on prompt, it seems it's one level deep
-    
     wl = weapons_data.get('weapon_list', {})
     if weapon_key in wl:
         return wl[weapon_key]
-
     return wl.get('unarmed', {'die': 4, 'attack_range': 1, 'bonus': 0})
 
 def load_armor():
     base_dir = os.path.dirname(__file__)
     path = os.path.join(base_dir, '..', '..', 'data', 'players', 'armor.json')
-
     with open(path, 'r', encoding='utf-8-sig') as f:
         data = json.load(f)
-
     return data.get('armor_list', {})
     
 armor_data = load_armor()
+
+def load_shields():
+    base_dir = os.path.dirname(__file__)
+    path = os.path.join(base_dir, '..', '..', 'data', 'players', 'shields.json')
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        return data.get('shield_list', {})
+    except FileNotFoundError:
+        return {}
+
+shields_data = load_shields()
+
+def load_trinkets():
+    base_dir = os.path.dirname(__file__)
+    path = os.path.join(base_dir, '..', '..', 'data', 'players', 'trinkets.json')
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        return data.get('trinket_list', {})
+    except FileNotFoundError:
+        return {}
+
+trinkets_data = load_trinkets()
 
 def apply_weapon_to_player(player_data, weapon_name=None):
     if not weapon_name:
@@ -52,66 +68,199 @@ def apply_weapon_to_player(player_data, weapon_name=None):
 
     player_data['weapon'] = weapon_name
     player_data['damage_die'] = weapon_stats.get('die')
+    
+    # Base on-hit effect from weapon stats
     player_data['on_hit_effect'] = weapon_stats.get('on_hit_effect') or weapon_stats.get('condition')
-    player_data['weapon_bonus'] = weapon_stats.get('bonus', 0)
+    
+    # Check for upgrades/enchantments
+    upgrades = player_data.get('weapon_upgrades', {}).get(weapon_name, {})
+    level = upgrades.get('level', 0)
+    enchantment = upgrades.get('enchantment')
+    
+    player_data['weapon_bonus'] = weapon_stats.get('bonus', 0) + level
     player_data['weapon_range'] = weapon_stats.get('attack_range', 1)
+    player_data['weapon_enchantment'] = enchantment
+    
+    # Handle specific enchantment property changes
+    if enchantment == 'critical':
+        player_data['crit_on_19'] = True
+    elif enchantment == 'extra_critical':
+        player_data['crit_on_18'] = True
+    else:
+        player_data.setdefault('crit_on_19', False)
+        player_data.setdefault('crit_on_18', False)
+
+    # Focusing Lens: +1 to Spell Save
+    if enchantment == 'focusing_lens':
+        player_data['spell_save'] = player_data.get('spell_save', 0) + 1
 
     return player_data
 
 
+def validate_player_data(player_data):
+    """
+    Ensures all player stats are correctly calculated based on class, level, and equipment.
+    Call this whenever player data might be inconsistent or when entering the Hub.
+    """
+    from .leveler import recalculate_stats
+    
+    # 1. Recalculate base stats from class levels (MP, SP, Skills, Spells, etc.)
+    recalculate_stats(player_data)
+    
+    # 2. Apply current weapon (Bonuses, Ranges, Enchantments)
+    apply_weapon_to_player(player_data)
+    
+    # 3. Apply armor, shields, and trinkets (AC, HP/MP/SP bonuses, Spell Save)
+    apply_armor_to_player(player_data)
+    
+    return player_data
+
 def get_armor_stats(armor_name):
-    armor_name = (armor_name or 'unarmored').lower()
-
+    armor_name = (armor_name or 'unarmored').lower().replace(' ', '_')
     if armor_name in armor_data:
-        armor_entry = armor_data[armor_name]
-        return {
-            'name': armor_name,
-            'type': armor_entry.get('type', 'none'),
-            'ac': armor_entry.get('ac', 10)
-        }
-
-    # fallback to unarmored
+        return armor_data[armor_name]
+    alt_name = armor_name.replace('_', ' ')
+    if alt_name in armor_data:
+        return armor_data[alt_name]
     return {'name': 'unarmored', 'type': 'none', 'ac': 10}
 
+def get_shield_stats(shield_name):
+    shield_key = (shield_name or 'none').lower().replace(' ', '_')
+    if shield_key in shields_data:
+        return shields_data[shield_key]
+    return shields_data.get('none', {'ac': 0})
+
+def get_trinket_stats(trinket_name):
+    trinket_key = (trinket_name or 'none').lower().replace(' ', '_')
+    if trinket_key in trinkets_data:
+        return trinkets_data[trinket_key]
+    return trinkets_data.get('none', {'bonus_ac': 0, 'bonus_hp': 0})
+
+def can_equip_armor(player_data, armor_name):
+    """
+    Checks if the player's class is proficient with the given armor.
+    """
+    armor_stats = get_armor_stats(armor_name)
+    armor_type = armor_stats.get('type', 'none')
+    
+    # All classes can use shields, and Shields are now separate, but checking just in case
+    if armor_type == 'shield':
+        return True
+        
+    class_name = player_data.get('class', 'fighter')
+    from .leveler import load_player_classes
+    classes_data = load_player_classes()
+    class_info = classes_data.get(class_name, {})
+    
+    proficiencies = class_info.get('armor_proficiencies', ['none'])
+    return armor_type in proficiencies
 
 def apply_armor_to_player(player_data):
-    armor_item = player_data.get('armor', 'unarmored')
+    # Recalculate AC and Buffs based on ALL equipment
+    armor_name = player_data.get('armor', 'unarmored')
+    shield_name = player_data.get('shield', 'none')
+    trinket_name = player_data.get('trinket', 'none')
 
-    if isinstance(armor_item, int):
-        return player_data
+    armor_stats = get_armor_stats(armor_name)
+    shield_stats = get_shield_stats(shield_name)
+    trinket_stats = get_trinket_stats(trinket_name)
 
-    armor_stats = get_armor_stats(armor_item)
+    armor_type = armor_stats.get('type', 'none')
+    base_ac = armor_stats.get('ac', 10)
+    shield_ac = shield_stats.get('ac', 0)
+    trinket_ac = trinket_stats.get('bonus_ac', 0)
 
-    armor_type = armor_stats['type']
-    base_ac = armor_stats['ac']
+    proficiency = int(player_data.get('proficiency_bonus', 0))
 
-    proficiency = int(player_data.get('proficiency_bonus', player_data.get('proficiency', 0)))
-
-    # Simple AC calc: Base AC + Proficiency scaling for light/medium, or just AC for heavy/shield
-    # This logic follows what was there but cleaned up.
+    bonus = 0
     if armor_type == 'light':
         bonus = max(0, proficiency - 1)
     elif armor_type == 'medium':
         bonus = max(0, proficiency - 2)
-    elif armor_type == 'shield':
-        # Shields add to the player's current AC. 
-        # In this simple model, we just treat it as part of the total.
-        bonus = 0
-    else:
-        bonus = 0
-
-    ac_value = base_ac + bonus
-
-    player_data['armor_name'] = armor_stats['name']
-    player_data['armor_type'] = armor_type
+    
+    player_data['ac'] = base_ac + bonus + shield_ac + trinket_ac
     player_data['armor_base'] = base_ac
     player_data['armor_bonus'] = bonus
-    player_data['ac'] = ac_value
+    player_data['shield_bonus'] = shield_ac
+    player_data['trinket_ac_bonus'] = trinket_ac
+    
+    # 1. Capture OLD max stats to calculate differences
+    old_max_hp = player_data.get('max_hp', player_data.get('hp', 10))
+    old_max_mp = player_data.get('max_mp', 0)
+    old_max_sp = player_data.get('max_sp', 0)
 
-    # player_data['armor'] should remain the name string for inventory/UI
-    # Simulator should use player_data['ac'] or player_data['armor_stats']['ac']
+    # 2. Get true BASE stats from class levels (set by recalculate_stats)
+    base_hp = player_data.get('max_hp_base', 10)
+    base_mp = player_data.get('max_mp_base', 0)
+    base_sp = player_data.get('max_sp_base', 0)
+    
+    # 3. Calculate NEW max stats with equipment bonuses
+    eq_hp = armor_stats.get('bonus_hp', 0) + shield_stats.get('bonus_hp', 0) + trinket_stats.get('bonus_hp', 0)
+    eq_mp = armor_stats.get('bonus_mp', 0) + shield_stats.get('bonus_mp', 0) + trinket_stats.get('bonus_mp', 0)
+    eq_sp = armor_stats.get('bonus_sp', 0) + shield_stats.get('bonus_sp', 0) + trinket_stats.get('bonus_sp', 0)
+    
+    new_max_hp = base_hp + eq_hp
+    new_max_mp = base_mp + eq_mp
+    new_max_sp = base_sp + eq_sp
+
+    # 4. Apply NEW max stats
+    player_data['max_hp'] = new_max_hp
+    player_data['max_mp'] = new_max_mp
+    player_data['max_sp'] = new_max_sp
+
+    # 5. Adjust CURRENT values by the change in max (prevents "healing" but keeps relative health)
+    # If this is the first initialization, set current = max
+    if 'current_hp' not in player_data:
+        player_data['current_hp'] = new_max_hp
+        player_data['hp'] = new_max_hp
+    else:
+        # Increase current HP if max HP increased (from level up or new gear)
+        hp_diff = new_max_hp - old_max_hp
+        if hp_diff > 0:
+            player_data['current_hp'] += hp_diff
+            player_data['hp'] = player_data['current_hp']
+        
+    if 'current_mp' not in player_data or (old_max_mp == 0 and new_max_mp > 0):
+        player_data['current_mp'] = new_max_mp
+    else:
+        mp_diff = new_max_mp - old_max_mp
+        if mp_diff > 0:
+            player_data['current_mp'] += mp_diff
+
+    if 'current_sp' not in player_data or (old_max_sp == 0 and new_max_sp > 0):
+        player_data['current_sp'] = new_max_sp
+    else:
+        sp_diff = new_max_sp - old_max_sp
+        if sp_diff > 0:
+            player_data['current_sp'] += sp_diff
+
+    # Clamping
+    player_data['hp'] = min(player_data.get('hp', player_data['max_hp']), player_data['max_hp'])
+    player_data['current_hp'] = player_data['hp']
+    player_data['current_mp'] = min(player_data.get('current_mp', 0), player_data['max_mp'])
+    player_data['current_sp'] = min(player_data.get('current_sp', 0), player_data['max_sp'])
+
+    # Bonuses
+    eq_dmg = armor_stats.get('bonus_dmg', 0) + shield_stats.get('bonus_dmg', 0) + trinket_stats.get('bonus_atk', 0)
+    eq_spell_save = armor_stats.get('spell_save', 0) + shield_stats.get('spell_save', 0) + trinket_stats.get('spell_save', 0)
+    player_data['equipment_dmg_bonus'] = eq_dmg
+    # Add base spell save from focusing lens if applicable
+    upgrades = player_data.get('weapon_upgrades', {}).get(player_data.get('weapon', 'unarmed'), {})
+    if upgrades.get('enchantment') == 'focusing_lens':
+        eq_spell_save += 1
+    player_data['spell_save'] = eq_spell_save
     
     return player_data
+
+def apply_shield_to_player(player_data, shield_name=None):
+    if shield_name:
+        player_data['shield'] = shield_name
+    return apply_armor_to_player(player_data)
+
+def apply_trinket_to_player(player_data, trinket_name=None):
+    if trinket_name:
+        player_data['trinket'] = trinket_name
+    return apply_armor_to_player(player_data)
 
 def choose_player_class(class_data):
     class_names = list(class_data.keys())
@@ -135,14 +284,16 @@ def choose_player_class(class_data):
             print('Invalid class selection, please try again.')
             continue
 
-        chosen_data = class_data[chosen_name].copy() # Copy to avoid mutating original source
+        chosen_data = class_data[chosen_name].copy() 
+        chosen_data['class'] = chosen_name
+        chosen_data.setdefault('shield', 'none')
+        chosen_data.setdefault('trinket', 'none')
 
-        # Apply armor to show AC in stats display
+        # Apply equipment to show correct stats in confirm screen
         apply_armor_to_player(chosen_data)
 
         print('\nSelected class: ' + chosen_name.title())
         print('Class stats:')
-        # Get level 1 attack count from player_classes.json
         from .leveler import load_player_classes
         player_classes = load_player_classes()
         level1_stats = player_classes[chosen_name].get('levels', {}).get('1', {})
@@ -150,7 +301,7 @@ def choose_player_class(class_data):
         
         print(f"  HP: {chosen_data.get('hp')}")
         print(f"  Weapon: {chosen_data.get('weapon')}")
-        print(f"  Armor AC: {chosen_data.get('ac')} ({chosen_data.get('armor_name')})")
+        print(f"  Armor AC: {chosen_data.get('ac')}")
         print(f"  Level 1 Attack Count: {level1_attack_count}")
 
         confirm = input('Confirm this class? (y/n): ').strip().lower()
@@ -158,7 +309,6 @@ def choose_player_class(class_data):
             return chosen_name, chosen_data
 
         print('Returning to class selection...\n')
-
 
 
 try:
@@ -173,6 +323,8 @@ if __name__ == '__main__':
     selected_class_data.setdefault('level', 1)
     selected_class_data['base_hp'] = selected_class_data.get('hp', 0)
     selected_class_data['class'] = selected_class_name
+    selected_class_data.setdefault('shield', 'none')
+    selected_class_data.setdefault('trinket', 'none')
 
     apply_weapon_to_player(selected_class_data)
     apply_armor_to_player(selected_class_data)
@@ -190,7 +342,6 @@ if __name__ == '__main__':
             new_weapon = entry.split(' ', 1)[1].strip()
             apply_weapon_to_player(selected_class_data, new_weapon)
             print(f"Weapon changed to '{selected_class_data['weapon']}'.")
-            print(f"Damage die: d{selected_class_data['damage_die']}, on_hit_effect: {selected_class_data['on_hit_effect']}")
             continue
 
         if not entry.isdigit():
@@ -202,7 +353,7 @@ if __name__ == '__main__':
 
         next_xp = xp_to_next_level(selected_class_data['xp'], class_name=selected_class_name)
         print(f"Total XP: {selected_class_data['xp']}")
-        print(f"Level: {selected_class_data['level']} (HP: {selected_class_data['hp']}, prof +{selected_class_data['proficiency_bonus']})")
+        print(f"Level: {selected_class_data['level']} (HP: {selected_class_data['hp']}, AC: {selected_class_data['ac']})")
         if next_xp is None:
             print('Max level reached.')
         else:

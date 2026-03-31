@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from core.game_rules.game_manager import GameManager
-from interfaces.pygame.states.class_select import ClassSelectState
+from interfaces.pygame.states.title import TitleState
 from core.game_rules.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, COLOR_BG, DEFAULT_FONT_SIZE, scale_font 
 
 pygame.init()
@@ -14,11 +14,11 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 clock.tick(FPS)
 screen.fill(COLOR_BG)
-pygame.display.set_caption("5e RPG Simulator")
+pygame.display.set_caption("Valor - 5e RPG Simulator")
 font = pygame.font.SysFont(None, scale_font(DEFAULT_FONT_SIZE))
 
 game = GameManager()
-game.change_state(ClassSelectState(game, font))
+game.change_state(TitleState(game, font))
 
 while True:
     events = pygame.event.get()

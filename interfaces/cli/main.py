@@ -37,8 +37,18 @@ def load_spells():
     except FileNotFoundError:
         return {}
 
-def get_scaled_enemy(enemy_data, player_level=1):
+def load_skills():
+    base_dir = os.path.dirname(__file__)
+    json_path = os.path.join(base_dir, '..', '..', 'data', 'players', 'skills.json')
+    try:
+        with open(json_path, 'r', encoding='utf-8-sig') as f:
+            return json.load(f).get('skill_list', {})
+    except FileNotFoundError:
+        return {}
+
+def get_scaled_enemies(enemy_data, player_level=1):
     enemy_names = list(enemy_data.keys())
+    # Current available range for player_level
     max_index = min(len(enemy_names) - 1, 2 + (player_level * 2))
 
     if max_index < 0:
@@ -46,25 +56,54 @@ def get_scaled_enemy(enemy_data, player_level=1):
 
     selected_names = enemy_names[0:max_index + 1]
     enemy_name = random.choice(selected_names)
-    return enemy_name, enemy_data[enemy_name]
+    enemy_index = enemy_names.index(enemy_name)
+    
+    enemies = []
+    
+    # Scaling rules:
+    # At level 5, if enemy is from level 1 range (idx <= 4), spawn 2.
+    # At level 10, if from level 1 range, spawn 3. If from level 6 range, spawn 2.
+    
+    spawn_count = 1
+    
+    # Determine the "level range" this enemy belongs to
+    # Enemy for level L has index up to 2 + (L * 2)
+    # So L = (index - 2) / 2
+    enemy_orig_level = max(1, (enemy_index - 2) // 2 + 1)
+    
+    if player_level >= 10:
+        if enemy_orig_level <= player_level - 9: # Level 1 enemies
+            spawn_count = 3
+        elif enemy_orig_level <= player_level - 4: # Level 6 enemies
+            spawn_count = 2
+    elif player_level >= 5:
+        if enemy_orig_level <= player_level - 4: # Level 1 enemies
+            spawn_count = 2
+            
+    for i in range(spawn_count):
+        e_copy = enemy_data[enemy_name].copy()
+        e_copy['name'] = f"{enemy_name} {chr(65+i)}" if spawn_count > 1 else enemy_name
+        enemies.append(e_copy)
+        
+    return enemies
 
 
-def choose_enemy(enemy_data, player_level=1):
-    enemy_name, enemy_profile = get_scaled_enemy(enemy_data, player_level)
-    print(f"You encountered {enemy_name.title()}!")
+def choose_enemies(enemy_data, player_level=1):
+    enemies = get_scaled_enemies(enemy_data, player_level)
+    names = ", ".join([e['name'].title() for e in enemies])
+    print(f"You encountered {names}!")
     input('Press Enter to Roll initiative!\n')
-    return enemy_name, enemy_profile
+    return enemies
 
 
-def simulate_combat(player_data, enemy_data, player_goes_first=True):
+def simulate_combat(player_data, enemy_list, player_goes_first=True):
     player = player_data # Reference to update HP/MP
-    enemy = enemy_data.copy()
+    enemies = [e.copy() for e in enemy_list] # Work with copies
 
     # HP Tracking
     player_hp = int(player.get('hp', 1))
     player_max_hp = player.get('max_hp', player_hp)
-    enemy_hp = int(enemy.get('hp', 1))
-
+    
     # Stats (Local modifiable versions for combat)
     p_attack_count = int(player.get('attack_count', 1))
     
@@ -72,22 +111,51 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
     enemy_advantage = 0
     extra_damage_once = 0 # From poisons, etc.
 
+    # Condition tracking
+    player_conditions = {}
+    for e in enemies: e['conditions'] = {}
+
     consumables_db = load_consumables()
     spells_db = load_spells()
+    skills_db = load_skills()
 
     turn = 1
-    print(f"Combat start: player hp={player_hp}, enemy hp={enemy_hp}\n")
+    
+    def get_alive_enemies():
+        return [e for e in enemies if e.get('hp', 0) > 0]
 
-    while player_hp > 0 and enemy_hp > 0:
+    print(f"Combat start: player hp={player_hp}, enemies={len(enemies)}\n")
+
+    while player_hp > 0 and len(get_alive_enemies()) > 0:
         print(f"--- Turn {turn} ---")
 
         def player_phase():
-            nonlocal enemy_hp, player_hp, player_advantage, enemy_advantage, p_attack_count, extra_damage_once
+            nonlocal player_hp, player_advantage, enemy_advantage, p_attack_count, extra_damage_once
             
+            if player_conditions.get('stunned', 0) > 0:
+                print("You are stunned and skip your turn!")
+                player_conditions['stunned'] -= 1
+                return "ok"
+
             action_taken = False
             while not action_taken:
-                print(f"\nPLAYER TURN (HP: {player_hp}/{player_max_hp}, MP: {player.get('current_mp', 0)})")
-                print("1. Attack")
+                alive_enemies = get_alive_enemies()
+                if not alive_enemies: break
+
+                status_str = f"\nPLAYER TURN (HP: {player_hp}/{player_max_hp}"
+                if player.get('max_mp', 0) > 0:
+                    status_str += f", MP: {player.get('current_mp', 0)}/{player.get('max_mp', 0)}"
+                if player.get('max_sp', 0) > 0:
+                    status_str += f", SP: {player.get('current_sp', 0)}/{player.get('max_sp', 0)}"
+                status_str += ")"
+                print(status_str)
+                
+                print("Enemies:")
+                for i, e in enumerate(alive_enemies, 1):
+                    cond_str = f" [{', '.join(e['conditions'].keys())}]" if e['conditions'] else ""
+                    print(f"  {i}. {e['name'].title()} (HP: {e['hp']}){cond_str}")
+
+                print("\n1. Attack")
                 print("2. Use Item")
                 print("3. Skills/Spells")
                 print("4. Run")
@@ -95,20 +163,27 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
                 choice = input("Select an action: ").strip()
                 
                 if choice == '1':
+                    # Select target
+                    t_choice = input(f"Select target (1-{len(alive_enemies)}): ").strip()
+                    if not (t_choice.isdigit() and 1 <= int(t_choice) <= len(alive_enemies)):
+                        print("Invalid target.")
+                        continue
+                    
+                    target = alive_enemies[int(t_choice) - 1]
                     total_damage = 0
                     for _ in range(p_attack_count):
-                        res = CombatEngine.resolve_attack(player, enemy, advantage=player_advantage)
-                        player_advantage = 0 # Reset
+                        res = CombatEngine.resolve_attack(player, target, advantage=player_advantage)
+                        player_advantage = 0 
                         
                         if res['hit']:
                             dmg = res['damage']
                             if extra_damage_once > 0:
                                 dmg += extra_damage_once
-                                print(f"  Poison applied! +{extra_damage_once} damage.")
+                                print(f"  Effect applied! +{extra_damage_once} damage.")
                                 extra_damage_once = 0
                                 
                             total_damage += dmg
-                            print(f"Player hits for {dmg} (roll {res['roll']})")
+                            print(f"Player hits {target['name']} for {dmg} (roll {res['roll']})")
                             
                             for effect, val in res['effects']:
                                 if effect == 'player_advantage': player_advantage = val; print("  Vex: Advantage on next attack!")
@@ -116,18 +191,15 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
                                 elif effect == 'heal_attacker':
                                     player_hp = min(player_max_hp, player_hp + val)
                                     print(f"  Lifesteal: Healed for {val} HP!")
+                                elif effect == 'stunned':
+                                    target['conditions']['stunned'] = val
+                                    print(f"  Effect: {target['name']} is stunned!")
                                 elif effect == 'msg': print(f"  {val}")
                         else:
-                            print(f"Player misses (roll {res['roll']})")
-                            for effect, val in res['effects']:
-                                if effect == 'msg':
-                                    print(f"  {val}")
-                                    if "Graze" in val:
-                                        total_damage += int(val.split(" ")[2]) 
+                            print(f"Player misses {target['name']} (roll {res['roll']})")
                     
-                    enemy_hp = max(0, enemy_hp - total_damage)
-                    enemy['current_hp'] = enemy_hp 
-                    print(f"Total player damage: {total_damage}. Enemy HP: {enemy_hp}")
+                    target['hp'] = max(0, target['hp'] - total_damage)
+                    print(f"Total damage to {target['name']}: {total_damage}. Remaining HP: {target['hp']}")
                     action_taken = True
                     
                 elif choice == '2':
@@ -165,8 +237,6 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
                             
                             items.pop(int(item_choice) - 1)
                             action_taken = True
-                        else:
-                            print("That item doesn't seem to work here.")
                     else:
                         continue
 
@@ -188,37 +258,61 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
                     if s_choice.isdigit() and 1 <= int(s_choice) <= len(all_abilities):
                         ability_name = all_abilities[int(s_choice) - 1]
                         ability_key = ability_name.lower().replace(' ', '_')
+                        ability_data = skills_db.get(ability_key) or spells_db.get(ability_key)
                         
-                        spell_data = spells_db.get(ability_key)
-                        if spell_data:
-                            mana_cost = spell_data.get('level', 0)
-                            current_mp = player.get('current_mp', 0)
+                        if ability_data:
+                            cost = ability_data.get('cost', ability_data.get('level', 0))
+                            resource_type = ability_data.get('resource', 'mp')
+                            resource_key = 'current_mp' if resource_type == 'mp' else 'current_sp'
+                            current_resource = player.get(resource_key, 0)
                             
-                            if current_mp < mana_cost:
-                                print(f"Not enough mana! (Need {mana_cost}, have {current_mp})")
+                            if current_resource < cost:
+                                print(f"Not enough {resource_type.upper()}! (Need {cost}, have {current_resource})")
                                 continue
 
-                            res = CombatEngine.resolve_spell(spell_data, player, enemy)
+                            # Target selection for non-AOE
+                            targets = alive_enemies
+                            if not ability_data.get('aoe'):
+                                t_choice = input(f"Select target (1-{len(alive_enemies)}): ").strip()
+                                if not (t_choice.isdigit() and 1 <= int(t_choice) <= len(alive_enemies)):
+                                    print("Invalid target.")
+                                    continue
+                                targets = [alive_enemies[int(t_choice) - 1]]
+
+                            res = CombatEngine.resolve_ability(ability_data, player, targets)
                             print(res['msg'])
-                            player['current_mp'] = current_mp - res['mana_cost']
+                            player[resource_key] = current_resource - res.get('mana_cost', cost)
                             
-                            if res['damage'] > 0:
-                                enemy_hp = max(0, enemy_hp - res['damage'])
-                                enemy['current_hp'] = enemy_hp
-                                print(f"Spell dealt {res['damage']} damage to enemy!")
+                            # Apply damage to targets
+                            dmg_map = res.get('damage_by_target', {})
+                            for target in targets:
+                                dmg = dmg_map.get(id(target), 0)
+                                if dmg > 0:
+                                    target['hp'] = max(0, target['hp'] - dmg)
+                                    print(f"  {target['name']} took {dmg} damage! (HP: {target['hp']})")
                             
                             if res['healing'] > 0:
                                 player_hp = min(player_max_hp, player_hp + res['healing'])
-                                print(f"Spell healed you for {res['healing']} HP!")
+                                print(f"Ability healed you for {res['healing']} HP!")
                                 
                             for effect, val in res['effects']:
                                 if effect == 'enemy_advantage':
                                     enemy_advantage = val
-                                    print("Enemy is stunned/disadvantaged!")
+                                    print("Enemies are disadvantaged!")
+                                elif effect == 'extra_damage':
+                                    extra_damage_once += val
+                                    print(f"Effect: Next hit will deal +{val} damage!")
+                                elif effect == 'heal_attacker':
+                                    player_hp = min(player_max_hp, player_hp + val)
+                                    print(f"Effect: Healed for {val} HP!")
+                                elif effect == 'stunned':
+                                    for target in targets:
+                                        target['conditions']['stunned'] = val
+                                        print(f"Effect: {target['name']} is stunned!")
                                 
                             action_taken = True
                         else:
-                            print(f"You used {ability_name.title()}! (No mechanical effect defined)")
+                            print(f"You used {ability_name.title()}!")
                             action_taken = True
                     else:
                         continue
@@ -230,45 +324,51 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
                     else:
                         print("You failed to run away!")
                         action_taken = True
-                
                 else:
                     print("Invalid selection.")
             
             return "ok"
 
         def enemy_phase():
-            nonlocal player_hp, enemy_hp, player_advantage, enemy_advantage
+            nonlocal player_hp, enemy_advantage
             total_damage = 0
-            e_attack_count = int(enemy.get('attack_count', 1))
+            alive_enemies = get_alive_enemies()
+            
+            for enemy in alive_enemies:
+                if enemy['conditions'].get('stunned', 0) > 0:
+                    print(f"{enemy['name'].title()} is stunned and skips their turn!")
+                    enemy['conditions']['stunned'] -= 1
+                    continue
 
-            for _ in range(e_attack_count):
-                res = CombatEngine.resolve_attack(enemy, player, advantage=enemy_advantage)
-                enemy_advantage = 0 
+                e_attack_count = int(enemy.get('attack_count', 1))
+                print(f"{enemy['name'].title()} attacks!")
                 
-                if res['hit']:
-                    dmg = res['damage']
-                    total_damage += dmg
-                    print(f"Enemy hits for {dmg} (roll {res['roll']})")
+                for _ in range(e_attack_count):
+                    res = CombatEngine.resolve_attack(enemy, player, advantage=enemy_advantage)
+                    enemy_advantage = 0 
                     
-                    for effect, val in res['effects']:
-                        if effect == 'player_advantage': player_advantage = val; print("  Enemy Vex: Enemy gains advantage!")
-                        elif effect == 'enemy_advantage': enemy_advantage = val; print("  Enemy Sap: Player disadvantage!")
-                        elif effect == 'msg': print(f"  {val}")
-                else:
-                    print(f"Enemy misses (roll {res['roll']})")
-                    for effect, val in res['effects']:
-                        if effect == 'msg':
-                            print(f"  {val}")
-                            if "Graze" in val:
-                                total_damage += int(val.split(" ")[2])
+                    if res['hit']:
+                        dmg = res['damage']
+                        total_damage += dmg
+                        print(f"  Hits for {dmg} (roll {res['roll']})")
+                        
+                        for effect, val in res['effects']:
+                            if effect == 'heal_attacker':
+                                enemy['hp'] = min(enemy.get('max_hp', enemy['hp']), enemy['hp'] + val)
+                                print(f"  {enemy['name']} heals for {val} HP!")
+                            elif effect == 'stunned':
+                                player_conditions['stunned'] = val
+                                print("  Effect: You are stunned!")
+                    else:
+                        print(f"  Misses (roll {res['roll']})")
 
             player_hp = max(0, player_hp - total_damage)
-            print(f"Total enemy damage: {total_damage}. Player HP: {player_hp}\n")
+            print(f"Total damage received: {total_damage}. Player HP: {player_hp}\n")
 
         if player_goes_first:
             res = player_phase()
             if res == "ran": return {'winner': 'none', 'player_hp': player_hp, 'turns': turn}
-            if enemy_hp <= 0: break
+            if not get_alive_enemies(): break
             input('Next phase...')
             enemy_phase()
         else:
@@ -278,7 +378,7 @@ def simulate_combat(player_data, enemy_data, player_goes_first=True):
             res = player_phase()
             if res == "ran": return {'winner': 'none', 'player_hp': player_hp, 'turns': turn}
 
-        if player_hp <= 0 or enemy_hp <= 0: break
+        if player_hp <= 0 or not get_alive_enemies(): break
         input('Next turn...')
         turn += 1
 
@@ -360,35 +460,44 @@ def main():
         if not hub_menu(player_profile, player_inventory):
             break
 
-        enemy_name, enemy_profile = choose_enemy(enemy_data, player_profile.get('level', 1))
+        enemies = choose_enemies(enemy_data, player_profile.get('level', 1))
         
         p_init = random.randint(1, 20) + player_profile.get('proficiency_bonus', 0)
-        e_init = random.randint(1, 20) + enemy_profile.get('bonus', 0)
+        # Initiative against the "first" enemy's bonus as a representative
+        e_init = random.randint(1, 20) + enemies[0].get('bonus', 0)
         player_first = p_init >= e_init
         
-        print(f"Initiative: Player {p_init} vs Enemy {e_init}")
-        result = simulate_combat(player_profile, enemy_profile, player_goes_first=player_first)
+        print(f"Initiative: Player {p_init} vs Enemies {e_init}")
+        result = simulate_combat(player_profile, enemies, player_goes_first=player_first)
 
         if result['winner'] == 'player':
-            enemies_defeated += 1
-            xp = enemy_profile.get('xp', 0)
+            enemies_defeated += len(enemies)
+            # Sum XP from all enemies in the group
+            total_xp = sum([e.get('xp', 0) for e in enemies])
             player_profile['hp'] = result['player_hp']
             
-            level_up_available = update_xp_and_level(player_profile, xp)
+            level_up_available = update_xp_and_level(player_profile, total_xp)
             
             if level_up_available:
+                from core.players.leveler import get_level_up_benefits
+                benefits = get_level_up_benefits(player_profile, player_profile['class'])
                 add_class_level(player_profile, player_profile['class'])
-                print(f"LEVEL UP! You are now level {player_profile['level']}. Max HP increased to {player_profile['max_hp']}.")
+                print(f"\n*** LEVEL UP! ***")
+                print(f"You are now level {player_profile['level']}.")
+                print(f"{benefits}")
+                print(f"Max HP: {player_profile['max_hp']}\n")
 
-            loot_msg = award_loot(player_inventory, enemy_profile.get('reward', {}))
-            if loot_msg:
-                print(loot_msg)
+            # Loot from each enemy
+            for e in enemies:
+                loot_msg = award_loot(player_inventory, e.get('reward', {}))
+                if loot_msg:
+                    print(f"Loot from {e['name']}: {loot_msg}")
             
-            print(f"You defeated {enemy_name}! Current HP: {player_profile['hp']}")
+            print(f"Current HP: {player_profile['hp']}")
             next_xp_val = xp_to_next_level(player_profile['xp'])
-            print(f"You gained {xp} xp, you are now {next_xp_val if next_xp_val is not None else 0} xp away from next level.")
+            print(f"You gained {total_xp} xp, you are now {next_xp_val if next_xp_val is not None else 0} xp away from next level.")
         elif result['winner'] == 'none':
-            print(f"You escaped from {enemy_name}.")
+            print(f"You escaped.")
             player_profile['hp'] = result['player_hp']
         else:
             print(f"Game Over. Final Score: {player_profile['xp'] + enemies_defeated}")

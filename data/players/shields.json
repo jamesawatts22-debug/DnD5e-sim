@@ -1,0 +1,64 @@
+{
+    "shield_list": {
+        "none": {
+            "name": "None",
+            "type": "shield",
+            "ac": 0,
+            "cost": 0,
+            "description": "No shield equipped."
+        },
+        "buckler": {
+            "name": "Buckler",
+            "type": "shield",
+            "ac": 1,
+            "cost": 25,
+            "description": "A small, round shield. Lightweight but basic."
+        },
+        "shield": {
+            "name": "Shield",
+            "type": "shield",
+            "ac": 2,
+            "cost": 50,
+            "description": "A standard wooden shield with iron banding."
+        },
+        "kite_shield": {
+            "name": "Kite Shield",
+            "type": "shield",
+            "ac": 3,
+            "cost": 100,
+            "description": "A large shield providing excellent coverage."
+        },
+        "tower_shield": {
+            "name": "Tower Shield",
+            "type": "shield",
+            "ac": 4,
+            "cost": 500,
+            "description": "A massive shield that covers most of your body."
+        },
+        "arcane_ward": {
+            "name": "Arcane Ward",
+            "type": "shield",
+            "ac": 1,
+            "spell_save": 2,
+            "cost": 600,
+            "description": "A shield etched with runes that improve spell success."
+        }
+,
+        "sturdy_targe": {
+            "name": "Sturdy Targe",
+            "type": "shield",
+            "ac": 2,
+            "bonus_sp": 10,
+            "cost": 750,
+            "description": "A combat shield designed for endurance."
+        },
+        "dragon_scale_shield": {
+            "name": "Dragon Scale Shield",
+            "type": "shield",
+            "ac": 5,
+            "bonus_hp": 15,
+            "cost": 1500,
+            "description": "A legendary shield made from the scales of a red dragon."
+        }
+    }
+}

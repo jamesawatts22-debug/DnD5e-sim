@@ -54,6 +54,7 @@
         "attack_range": 5,
         "attack_count": 1,
         "xp": 150,
+        "spells": ["magic_missile", "acid_splash"],
         "reward": {
             "gold": 10,
             "items": [
@@ -102,6 +103,7 @@
         "attack_range": 1,
         "attack_count": 1,
         "xp": 150,
+        "spells": ["inflict_wounds", "sacred_flame"],
         "reward": {
             "gold": 12,
             "items": [
@@ -118,6 +120,7 @@
         "attack_range": 1,
         "attack_count": 2,
         "xp": 160,
+        "skills": ["allure"],
         "reward": {
             "gold": 15,
             "items": [
@@ -134,6 +137,7 @@
         "attack_range": 1,
         "attack_count": 1,
         "xp": 150,
+        "skills": ["sneak_attack"],
         "reward": {
             "gold": 20,
             "items": [
@@ -150,6 +154,7 @@
         "attack_range": 2,
         "attack_count": 1,
         "xp": 175,
+        "skills": ["warchant"],
         "reward": {
             "gold": 16,
             "items": [
@@ -166,11 +171,12 @@
         "attack_range": 5,
         "attack_count": 1,
         "xp": 180,
+        "skills": ["poison_strike"],
         "reward": {
             "gold": 25,
             "items": [
                 {"name": "longbow", "type": "weapon"},
-                {"name": "leather armor", "type": "armor"}
+                {"name": "studded_leather", "type": "armor"}
             ]
         }
     },
@@ -214,6 +220,7 @@
         "attack_range": 2,
         "attack_count": 2,
         "xp": 400,
+        "skills": ["command"],
         "reward": {
             "gold": 50,
             "items": [
@@ -230,6 +237,7 @@
         "attack_range": 1,
         "attack_count": 1,
         "xp": 500,
+        "skills": ["gore", "charge"],
         "reward": {
             "gold": 60,
             "items": [
@@ -247,6 +255,7 @@
         "attack_count": 2,
         "xp": 750,
         "on_hit_effect": "sap",
+        "skills": ["petrifying_gaze"],
         "reward": {
             "gold": 100,
             "items": [
@@ -263,6 +272,7 @@
         "attack_range": 1,
         "attack_count": 2,
         "xp": 1000,
+        "spells": ["vampiric_touch", "darkness"],
         "reward": {
             "gold": 150,
             "items": [
@@ -279,6 +289,7 @@
         "attack_range": 2,
         "attack_count": 3,
         "xp": 1500,
+        "skills": ["fire_breath", "tail_swipe"],
         "reward": {
             "gold": 250,
             "items": [
@@ -295,6 +306,8 @@
         "attack_range": 5,
         "attack_count": 3,
         "xp": 5000,
+        "skills": ["dragon_breath", "wing_buffet"],
+        "spells": ["fire_storm", "meteor_swarm"],
         "reward": {
             "gold": 2000,
             "items": [

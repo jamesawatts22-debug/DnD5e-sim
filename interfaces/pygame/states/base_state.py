@@ -20,9 +20,14 @@ class BaseState:
             self.active_menu.selected = selection
             option = self.active_menu.options[selection]
             self.on_select(option)
+        
+        if not self.active_menu:
+            return
 
         # Keyboard input
         for event in events:
+            if not self.active_menu:
+                break
             result = self.active_menu.handle_event(event)
             if result:
                 self.on_select(result)

@@ -1,4 +1,35 @@
 ﻿import random
+import re
+
+
+def roll_dice(dice_str):
+    """
+    Parses a dice string like '1d8', '3d6+4', '2d10-2' and returns the result.
+    If parsing fails, returns 0.
+    """
+    if not dice_str:
+        return 0
+    
+    # Clean string and match pattern
+    s = dice_str.lower().replace(" ", "")
+    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", s)
+    
+    if not match:
+        # Check if it's just a number
+        if s.isdigit():
+            return int(s)
+        return 0
+        
+    num, sides, bonus = match.groups()
+    num = int(num)
+    sides = int(sides)
+    
+    total = sum(random.randint(1, sides) for _ in range(num))
+    
+    if bonus:
+        total += int(bonus)
+        
+    return total
 
 
 def roll_d20(advantage=0):
@@ -37,33 +68,23 @@ def attack_roll(attack_bonus, enemy_ac, crit_range=(20,), advantage=0):
 def damage_roll(damage_die, attack_bonus, critical=False, player_data=None):
     """
     Calculate damage based on player class and stats.
-    - Rogue: adds sneak attack rolls (d6 each)
     - Spellcasters (sorcerer, wizard, druid, alchemist): rolls cantrip_dice_rolled × damage_die
     - Others: standard damage_die + bonus
     """
     player_class = player_data.get('class', '') if player_data else ''
+    eq_bonus = int(player_data.get('equipment_dmg_bonus', 0)) if player_data else 0
 
-    if player_class == 'rogue':
-        # Rogue: standard damage + sneak attack
-        base = random.randint(1, damage_die) + attack_bonus
-        sneak_attack_rolls = player_data.get('sneak_attack_rolls', 0)
-        sneak_attack_damage = sum(random.randint(1, 6) for _ in range(sneak_attack_rolls))
-        total = base + sneak_attack_damage
-        if critical:
-            return total + random.randint(1, damage_die)
-        return total
-
-    elif player_class in ('sorcerer', 'wizard', 'druid', 'alchemist'):
+    if player_class in ('sorcerer', 'wizard', 'druid', 'alchemist'):
         # Spellcaster: roll cantrip_dice_rolled × damage_die instead of standard damage  
         cantrip_dice_rolled = player_data.get('cantrip_dice_rolled', 1)
-        base = sum(random.randint(1, damage_die) for _ in range(cantrip_dice_rolled)) + attack_bonus
+        base = sum(random.randint(1, damage_die) for _ in range(cantrip_dice_rolled)) + attack_bonus + eq_bonus
         if critical:
             return base + random.randint(1, damage_die)
         return base
 
     else:
-        # Standard damage calculation for fighters, monks, archers, etc.
-        base = random.randint(1, damage_die) + attack_bonus
+        # Standard damage calculation for fighters, monks, archers, rogues, etc.
+        base = random.randint(1, damage_die) + attack_bonus + eq_bonus
         if critical:
             return base + random.randint(1, damage_die)
         return base

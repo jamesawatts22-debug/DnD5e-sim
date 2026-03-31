@@ -2,7 +2,7 @@ import pygame
 
 def draw_bar(screen, x, y, w, h, current, max_val, color, font=None, border_radius=8):
     from core.game_rules.constants import COLOR_GRAY, COLOR_BLACK
-    ratio = current / max_val if max_val > 0 else 0
+    ratio = min(1.0, current / max_val) if max_val > 0 else 0
 
     # Background (Darker grey/black)
     pygame.draw.rect(screen, (40, 40, 40), (x, y, w, h), border_radius=border_radius)
@@ -14,8 +14,9 @@ def draw_bar(screen, x, y, w, h, current, max_val, color, font=None, border_radi
         # But for simplicity, we'll just draw it with the same radius
         pygame.draw.rect(screen, color, (x, y, fill_w, h), border_radius=border_radius)
 
-    # Grey Border
-    pygame.draw.rect(screen, COLOR_GRAY, (x, y, w, h), 2, border_radius=border_radius)
+    # Gold Border
+    from core.game_rules.constants import COLOR_GOLD
+    pygame.draw.rect(screen, COLOR_GOLD, (x, y, w, h), 2, border_radius=border_radius)
 
     if font:
         from interfaces.pygame.ui.panel import draw_text_outlined

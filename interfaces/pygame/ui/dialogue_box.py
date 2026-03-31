@@ -100,12 +100,12 @@ class DialogueBox:
             return
 
         from core.game_rules.constants import COLOR_MIDNIGHT_BLUE, COLOR_GOLD, COLOR_WHITE
+        # Use RAW coordinates (Base Res: 800x600)
         panel = Panel(
-            SCREEN_WIDTH // 2,
-            SCREEN_HEIGHT - scale_y(160),
-            760,
-            140,
-            bg_color=COLOR_MIDNIGHT_BLUE,
+            400, # Center X
+            450, # Near Bottom Y (600 - 150)
+            760, # Width
+            140, # Height
             border_color=COLOR_GOLD,
             border_width=3,
             centered=True,

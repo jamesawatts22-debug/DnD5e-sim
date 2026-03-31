@@ -1,0 +1,81 @@
+import pygame
+from .base_state import BaseState
+from interfaces.pygame.ui.menu import Menu
+from interfaces.pygame.ui.backgrounds import BackgroundManager
+from interfaces.pygame.ui.panel import draw_text_outlined
+from core.game_rules.save_manager import SaveManager
+from core.game_rules.constants import scale_y, scale_x, COLOR_WHITE, COLOR_GOLD
+
+class SaveState(BaseState):
+    def __init__(self, game, font, mode="SAVE"):
+        super().__init__(game, font)
+        self.mode = mode # "SAVE" or "LOAD"
+        self.background = BackgroundManager.get_rest_bg()
+        
+        self.slots = [1, 2, 3]
+        self.slot_options = [SaveManager.get_slot_info(s) for s in self.slots]
+        self.slot_options.append("Back")
+        
+        header = "Save Game" if mode == "SAVE" else "Load Game"
+        self.menu = Menu(self.slot_options, font, header=header, width=300)
+        self.active_menu = self.menu
+        
+        self.confirm_menu = None
+        self.selected_slot = None
+
+    def on_select(self, option):
+        if self.confirm_menu:
+            if option == "Yes":
+                if self.mode == "SAVE":
+                    success = SaveManager.save_game(self.selected_slot, self.game.player)
+                    if success:
+                        print(f"Game saved to slot {self.selected_slot}")
+                else: # LOAD
+                    data = SaveManager.load_game(self.selected_slot)
+                    if data:
+                        self.game.player = data
+                        from .hub import HubState
+                        self.game.change_state(HubState(self.game, self.font))
+                        return # Exit early after loading
+                
+                # Back to main slot menu after saving
+                self.confirm_menu = None
+                self.active_menu = self.menu
+                self.refresh_slots()
+            else: # No
+                self.confirm_menu = None
+                self.active_menu = self.menu
+        else:
+            if option == "Back":
+                if self.mode == "SAVE":
+                    from .hub import HubState
+                    self.game.change_state(HubState(self.game, self.font))
+                else: # From Title
+                    from .title import TitleState
+                    self.game.change_state(TitleState(self.game, self.font))
+            else:
+                # Get the slot number from the option (it's 1-indexed in the slots list)
+                idx = self.slot_options.index(option)
+                if idx < len(self.slots):
+                    self.selected_slot = self.slots[idx]
+                    
+                    if self.mode == "LOAD" and SaveManager.load_game(self.selected_slot) is None:
+                        # Cannot load an empty slot
+                        return
+                        
+                    confirm_text = f"Overwrite Slot {self.selected_slot}?" if self.mode == "SAVE" else f"Load Slot {self.selected_slot}?"
+                    self.confirm_menu = Menu(["Yes", "No"], self.font, header=confirm_text, width=200)
+                    self.active_menu = self.confirm_menu
+
+    def refresh_slots(self):
+        self.slot_options = [SaveManager.get_slot_info(s) for s in self.slots]
+        self.slot_options.append("Back")
+        self.menu.set_options(self.slot_options)
+
+    def draw(self, screen):
+        super().draw(screen)
+        width, height = screen.get_size()
+        
+        title_str = "Save / Load"
+        tw, th = self.font.size(title_str)
+        draw_text_outlined(screen, title_str, self.font, COLOR_WHITE, width // 2 - tw // 2, scale_y(50))

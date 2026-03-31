@@ -73,36 +73,48 @@ def xp_to_next_level(total_xp):
 def recalculate_stats(player_data):
     """
     Recalculate all stats based on class levels.
-    player_data['class_levels'] = {"fighter": 2, "rogue": 1}
     """
     class_defs = load_player_classes()
     class_levels = player_data.get('class_levels', {})
     total_level = sum(class_levels.values())
     
-    # Base stats from first class or default
-    # If no class_levels, we can't do much.
     if not class_levels:
         return player_data
 
-    # PROFICIENCY BONUS (based on TOTAL level)
+    # PROFICIENCY BONUS
     prof_bonus = 2 + (total_level - 1) // 4 
     player_data['proficiency_bonus'] = prof_bonus
 
+    # BASE HP Calculation
+    # First class taken gives full hit die, subsequent levels give (die/2)+1
+    base_max_hp = 0
+    first_class = True
+    for class_name, level in class_levels.items():
+        c_def = class_defs.get(class_name.lower(), {})
+        hit_die = c_def.get('hp', 8)
+        if first_class:
+            base_max_hp += hit_die + (level - 1) * ((hit_die // 2) + 1)
+            first_class = False
+        else:
+            base_max_hp += level * ((hit_die // 2) + 1)
+    
+    player_data['max_hp_base'] = base_max_hp
+
     # MANA POOL (MP)
-    # +1 MP per level in caster classes
     caster_classes = ["wizard", "druid", "alchemist", "sorcerer"]
     max_mp = 0
     for c_name, c_level in class_levels.items():
         if c_name.lower() in caster_classes:
             max_mp += c_level
-    
-    player_data['max_mp'] = max_mp
-    # If MP was never set OR is zero at creation, initialize to full
-    if 'current_mp' not in player_data or player_data['current_mp'] == 0:
-        player_data['current_mp'] = player_data['max_mp']
-    else:
-        # Clamp only if already in use
-        player_data['current_mp'] = min(player_data['current_mp'], max_mp)
+    player_data['max_mp_base'] = max_mp
+
+    # STAMINA POOL (SP)
+    martial_classes = ["fighter", "monk", "archer", "rogue"]
+    max_sp = 0
+    for c_name, c_level in class_levels.items():
+        if c_name.lower() in martial_classes:
+            max_sp += c_level
+    player_data['max_sp_base'] = max_sp
 
     # RESET ACCUMULATORS
     player_data['spells'] = []
@@ -110,50 +122,107 @@ def recalculate_stats(player_data):
     player_data['attack_count'] = 1
     player_data['sneak_attack_rolls'] = 0
     player_data['cantrip_dice_rolled'] = 1
-    
-    # We should probably keep the original base HP from the starting class
-    # and add gains from others.
+    player_data['spell_save'] = 0
     
     for class_name, level in class_levels.items():
         c_def = class_defs.get(class_name.lower())
         if not c_def: continue
         
-        # Accumulate stats from each level of this class
         for lvl in range(1, level + 1):
             lvl_str = str(lvl)
             lvl_data = c_def.get('levels', {}).get(lvl_str, {})
             
-            # Merging Logic:
-            
-            # Attack Count: Use the highest value found
             if 'attack_count' in lvl_data:
                 player_data['attack_count'] = max(player_data['attack_count'], lvl_data['attack_count'])
-                
-            # Sneak Attack: Rogue specific accumulation
             if 'sneak_attack_rolls' in lvl_data:
-                # Usually doesn't stack from multiple classes, but rogue level defines it.
-                # In multi-classing, we just take the max rogue sneak attack.
                 player_data['sneak_attack_rolls'] = max(player_data['sneak_attack_rolls'], lvl_data['sneak_attack_rolls'])
-
-            # Cantrip Dice: Based on TOTAL level usually, but we'll follow class defs if they vary
             if 'cantrip_dice_rolled' in lvl_data:
                 player_data['cantrip_dice_rolled'] = max(player_data['cantrip_dice_rolled'], lvl_data['cantrip_dice_rolled'])
-
-            # Spells and Skills: Accumulate unique
             if 'spells' in lvl_data:
                 for s in lvl_data['spells']:
-                    if s not in player_data['spells']:
-                        player_data['spells'].append(s)
+                    if s not in player_data['spells']: player_data['spells'].append(s)
             if 'skills' in lvl_data:
                 for s in lvl_data['skills']:
-                    if s not in player_data['skills']:
-                        player_data['skills'].append(s)
-
-            # Damage Die: Monk specific usually. Take highest.
+                    if s not in player_data['skills']: player_data['skills'].append(s)
             if 'damage_die' in lvl_data:
                 player_data['damage_die'] = max(player_data.get('damage_die', 0), lvl_data['damage_die'])
 
     return player_data
+
+def get_level_up_benefits(player_data, class_name):
+    """
+    Returns a string summarizing the benefits of gaining a level in the specified class.
+    """
+    class_defs = load_player_classes()
+    class_name_lower = class_name.lower()
+    c_def = class_defs.get(class_name_lower)
+    if not c_def:
+        return "No benefits found."
+
+    player_class_levels = player_data.get('class_levels', {})
+    next_level = player_class_levels.get(class_name_lower, 0) + 1
+    total_level = sum(player_class_levels.values()) + 1
+    
+    lvl_str = str(next_level)
+    lvl_data = c_def.get('levels', {}).get(lvl_str, {})
+    
+    benefits = []
+    
+    # HP Gain
+    hit_die = c_def.get('hp', 8)
+    hp_gain = (hit_die // 2) + 1
+    benefits.append(f"HP: +{hp_gain}")
+    
+    # Proficiency Bonus
+    new_prof = 2 + (total_level - 1) // 4
+    old_prof = 2 + (total_level - 2) // 4 if total_level > 1 else 2
+    if new_prof > old_prof:
+        benefits.append(f"Proficiency Bonus: +{new_prof}")
+        
+    # MP/SP
+    caster_classes = ["wizard", "druid", "alchemist", "sorcerer"]
+    martial_classes = ["fighter", "monk", "archer", "rogue"]
+    if class_name_lower in caster_classes:
+        benefits.append("Mana: +1")
+    if class_name_lower in martial_classes:
+        benefits.append("Stamina: +1")
+        
+    # Level Data benefits
+    if 'attack_count' in lvl_data:
+        current_attack_count = player_data.get('attack_count', 1)
+        if lvl_data['attack_count'] > current_attack_count:
+            benefits.append(f"Attacks: {lvl_data['attack_count']}")
+
+    # Skills/Spells in levels
+    new_skills = list(lvl_data.get('skills', []))
+    new_spells = list(lvl_data.get('spells', []))
+
+    # At level 1, also check top-level skills/spells
+    if next_level == 1:
+        for s in c_def.get('skills', []):
+            if s not in new_skills: new_skills.append(s)
+        for s in c_def.get('spells', []):
+            if s not in new_spells: new_spells.append(s)
+
+    for skill in new_skills:
+        benefits.append(f"Skill: {skill.replace('_', ' ').title()}")
+    for spell in new_spells:
+        benefits.append(f"Spell: {spell.replace('_', ' ').title()}")
+
+    if 'sneak_attack_rolls' in lvl_data:
+        current_sa = player_data.get('sneak_attack_rolls', 0)
+        if lvl_data['sneak_attack_rolls'] > current_sa:
+             benefits.append(f"Sneak Attack: {lvl_data['sneak_attack_rolls']}d6")
+             
+    if 'damage_die' in lvl_data:
+        current_dd = player_data.get('damage_die', 0)
+        if lvl_data['damage_die'] > current_dd:
+            benefits.append(f"Unarmed Die: d{lvl_data['damage_die']}")
+
+    if not benefits:
+        return f"Level {next_level} {class_name.title()}"
+        
+    return f"Gains: " + ", ".join(benefits)
 
 def add_class_level(player_data, class_name):
     """Add a level in a specific class and update stats."""

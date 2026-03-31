@@ -5,7 +5,7 @@ from interfaces.pygame.states.base_state import BaseState
 from interfaces.pygame.ui.menu import Menu
 from interfaces.pygame.ui.backgrounds import BackgroundManager
 from interfaces.pygame.ui.dialogue_box import DialogueBox
-from core.players.player import apply_weapon_to_player, apply_armor_to_player, load_weapons, load_armor
+from core.players.player import apply_weapon_to_player, apply_armor_to_player, apply_trinket_to_player, apply_shield_to_player, load_weapons, load_armor, load_trinkets, load_shields, can_equip_armor
 from core.players.shop import load_consumables
 
 class InventoryState(BaseState):
@@ -18,15 +18,13 @@ class InventoryState(BaseState):
         # Mapping to remember original keys for display names
         self.item_map = {}
 
-        # In this game, player.get("inventory_ref") seems to be the way to get inventory
         self.inventory = game.player.get("inventory_ref", {})
         if not self.inventory:
-            # Fallback if inventory_ref is missing
             self.inventory = game.player.get("inventory", {})
 
         self.menus = []
         root_menu = Menu(
-            ["Weapons", "Armor", "Consumables", "Back"],
+            ["Weapons", "Armor", "Shields", "Trinkets", "Consumables", "Back"],
             self.font,
             pos=(150, 150)
             )   
@@ -65,19 +63,15 @@ class InventoryState(BaseState):
                 self.menus.pop()
                 return
             if option == "Yes":
-                # The confirm menu title has the item name
-                # But it's easier to just look at what was selected in menus[1]
                 item_display = self.menus[1].options[self.menus[1].selected]
                 item_key = self.item_map.get(item_display, item_display.split(" (")[0])
 
                 result_text = self.handle_item_action(item_key)
 
-                # Queue feedback
                 if result_text:
                     self.queue_message(result_text)
                     self.start_next_message()
 
-                # Keep root menu but clear others
                 root = self.menus[0]
                 self.menus = [root]
     
@@ -86,42 +80,58 @@ class InventoryState(BaseState):
             data = load_weapons().get("weapon_list", {})
         elif category == "armor":
             data = load_armor()
+        elif category == "shields":
+            data = load_shields()
+        elif category == "trinkets":
+            data = load_trinkets()
         elif category == "consumables":
             data = load_consumables()
         else:
             return
 
-        # inventory keys are likely singular: weapon, armor, consumable
         inv_key = category[:-1] if category.endswith('s') else category
-        items = self.inventory.get(inv_key, [])
+        category_data = self.inventory.get(inv_key, {})
+        
+        items = sorted(category_data.keys())
 
         options = []
+        descriptions = {}
         for item_key in items:
-            # Format name: replace underscores and title case
             display_name = item_key.replace('_', ' ').title()
+            count = category_data[item_key]
             
             if item_key in data:
-                cost = data[item_key].get("cost", 0)
-                full_display = f"{display_name} ({cost}g)"
+                item = data[item_key]
+                full_display = f"{display_name} (x{count})"
+                
+                # Format description
+                if category == "weapons":
+                    desc = f"{item.get('description', '')} (D{item.get('die', 4)}, {item.get('on_hit_effect', 'none').title()})"
+                elif category == "armor":
+                    desc = f"{item.get('description', '')} (AC: {item.get('ac', 10)}, {item.get('type', 'light').title()})"
+                elif category == "shields":
+                    desc = f"{item.get('description', '')} (AC: +{item.get('ac', 0)})"
+                elif category == "trinkets":
+                    desc = item.get('description', '')
+                else:
+                    desc = item.get('description', '')
+                descriptions[full_display] = desc
             else:
-                full_display = display_name
+                full_display = f"{display_name} (x{count})"
                 
             options.append(full_display)
             self.item_map[full_display] = item_key
 
         options.append("Back")
 
-        # Position to the right of previous menu
         x = self.menus[-1].pos[0] + 250
         y = self.menus[-1].pos[1]
 
-        new_menu = Menu(options, self.font, pos=(x, y), header=category.title())
+        new_menu = Menu(options, self.font, pos=(x, y), header=category.title(), descriptions=descriptions)
         self.menus.append(new_menu)
 
     def open_confirm_menu(self, item_key):
         display_name = item_key.replace('_', ' ').title()
-
-        # Determine category from root menu
         category = self.menus[0].options[self.menus[0].selected].lower()
 
         if category == "consumables":
@@ -148,76 +158,75 @@ class InventoryState(BaseState):
             return self.equip_weapon(item_key)
         elif category == "armor":
             return self.equip_armor(item_key)
+        elif category == "shields":
+            return self.equip_shield(item_key)
+        elif category == "trinkets":
+            return self.equip_trinket(item_key)
         elif category == "consumables":
             return self.use_consumable(item_key)
         return None
 
     def equip_weapon(self, item_key):
-        # We use player.py's function to ensure all derived stats update
         self.game.player["weapon"] = item_key
         apply_weapon_to_player(self.game.player)
-        
-        # Update inventory equipped state
         if "equipped" in self.inventory:
             self.inventory["equipped"]["weapon"] = item_key
-            
         return f"Equipped {item_key.replace('_', ' ').title()}."
 
     def equip_armor(self, item_key):
-        # We use player.py's function to ensure all derived stats update
+        if not can_equip_armor(self.game.player, item_key):
+            return f"You are not proficient with {item_key.replace('_', ' ').title()}!"
+            
         self.game.player["armor"] = item_key
         apply_armor_to_player(self.game.player)
-
-        # Update inventory equipped state
         if "equipped" in self.inventory:
             self.inventory["equipped"]["armor"] = item_key
+        return f"Equipped {item_key.replace('_', ' ').title()}."
 
+    def equip_shield(self, item_key):
+        self.game.player["shield"] = item_key
+        apply_shield_to_player(self.game.player)
+        if "equipped" in self.inventory:
+            self.inventory["equipped"]["shield"] = item_key
+        return f"Equipped {item_key.replace('_', ' ').title()}."
+
+    def equip_trinket(self, item_key):
+        self.game.player["trinket"] = item_key
+        apply_trinket_to_player(self.game.player)
+        if "equipped" in self.inventory:
+            self.inventory["equipped"]["trinket"] = item_key
         return f"Equipped {item_key.replace('_', ' ').title()}."
 
     def use_consumable(self, item_key):
-        consumables = load_consumables()
-
-        if item_key not in consumables:
+        from core.combat.combat_engine import CombatEngine
+        consumables_db = load_consumables()
+        item_data = consumables_db.get(item_key)
+        
+        if not item_data:
             return f"{item_key.replace('_', ' ').title()} not found."
 
-        item = consumables[item_key]
-        effect = item["effect_type"]
-        value = item["value"]
+        res = CombatEngine.resolve_item(item_data, self.game.player)
         p = self.game.player
+        if res['hp_gain'] > 0:
+            p['hp'] = min(p.get('max_hp', 20), p['hp'] + res['hp_gain'])
+        
+        from core.players.player_inventory import remove_item
+        remove_item(self.inventory, item_key, 'consumable')
 
-        if effect == "heal":
-            p["current_hp"] = min(p.get("max_hp", 10), p.get("current_hp", 0) + value)
-        elif effect == "buff_bonus":
-            p["bonus"] = p.get("bonus", 0) + value
-        elif effect == "buff_attacks":
-            p["attack_count"] = p.get("attack_count", 1) + value
-        elif effect == "extra_damage":
-            p["extra_damage"] = p.get("extra_damage", 0) + value
-        elif effect == "restore_mana":
-            p["current_mp"] = min(p.get("max_mp", 0), p.get("current_mp", 0) + value)
-
-        # Remove item after use
-        if item_key in self.inventory.get("consumable", []):
-            self.inventory["consumable"].remove(item_key)
-
-        return f"Used {item.get('name', item_key.replace('_', ' ').title())}."
+        return res['msg']
 
     def update(self, events):
-        # Dialogue takes priority
         if self.dialogue.current_message:
             self.dialogue.update()
-
             for event in events:
                 if event.type == pygame.KEYDOWN:
                     was_typing = self.dialogue.is_typing
                     self.dialogue.handle_event(event)
-
                     if not was_typing and not self.dialogue.current_message:
                         if self.message_queue:
                             self.start_next_message()
             return
 
-        # Normal menu logic
         active_menu = self.menus[-1]
         for event in events:
             result = active_menu.handle_event(event)
@@ -231,7 +240,6 @@ class InventoryState(BaseState):
                     self.handle_selection(result)
 
     def draw(self, screen):
-        # Draw background
         if self.background:
             screen.blit(self.background, (0, 0))
         else:
@@ -244,8 +252,6 @@ class InventoryState(BaseState):
         tw, th = self.font.size(title_text)
         draw_text_outlined(screen, title_text, self.font, (255, 255, 255), (SCREEN_WIDTH // 2) - (tw // 2), 50)
         
-        # Draw menus in reverse so the active one is on top (if they overlap)
-        # But here they are side by side
         for menu in self.menus:
             menu.draw(screen)
         
