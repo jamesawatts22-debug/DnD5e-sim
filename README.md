@@ -3,13 +3,11 @@ This project started as a proof of concept for my python studies and has quickly
 What started as a dice roller for DnD, turned into a hit calculator, then became a CLI game. Check previous Commits for Simulator.py if you want to play the CLI version!
 Now I'm migrating to Pygame, and creating something I can also plug API's into as a learning experience.
 
-<img width="1279" height="750" alt="image" src="https://github.com/user-attachments/assets/c672b1fd-dceb-448e-b362-01258dd7c418" />
-<img width="1301" height="759" alt="image" src="https://github.com/user-attachments/assets/1cd77e76-837e-4f59-b4e3-64af147e4c9a" /> 
-<img width="1274" height="752" alt="image" src="https://github.com/user-attachments/assets/3a40c0d0-6ac0-47a6-9bee-8b78d1e9ebc6" />
-<img width="1270" height="749" alt="image" src="https://github.com/user-attachments/assets/6a264171-b8f5-443e-82bc-3746213dd8a9" />
+<img width="1276" height="719" alt="image" src="https://github.com/user-attachments/assets/d10072b6-fcfb-4c0c-8161-d7db76e13482" />
 
+<img width="1273" height="717" alt="image" src="https://github.com/user-attachments/assets/53fd0df7-7c13-45d8-85de-1c87eb31dcac" />
 
-
+<img width="1273" height="717" alt="image" src="https://github.com/user-attachments/assets/12b559dc-a981-434b-98cb-e855063be488" />
 
 #   --- CURRENT FEATURES ---
 1. Implimented a class system similar to Dnd, Multiclassing friendly!
