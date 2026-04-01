@@ -25,19 +25,30 @@ class TitleState(BaseState):
         self.fade_speed = 2
         self.title_pos = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
         
-        self.menu = Menu(["New Game", "Load Game", "High Scores", "Exit"], font, width=200)
-        self.active_menu = None # Don't show menu yet
+        self.menu = Menu(["New Game", "Load Game", "High Scores", "Settings"], font, width=200)
+        self.active_menu = None 
         
-        self.state = "FADING" # FADING, MENU, NAMING
+        self.state = "FADING" # FADING, PRESS_START, MENU, NAMING
         self.player_name = ""
+        self.pulse_time = 0
 
     def update(self, events):
         if self.state == "FADING":
             self.title_alpha += self.fade_speed
             if self.title_alpha >= 255:
                 self.title_alpha = 255
-                self.state = "MENU"
-                self.active_menu = self.menu
+                self.state = "PRESS_START"
+        
+        elif self.state == "PRESS_START":
+            self.pulse_time += 0.05
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                        self.state = "MENU"
+                        self.active_menu = self.menu
+                        return # Consume events and wait for next frame to avoid double-selection
+        
+        
         
         elif self.state == "NAMING":
             for event in events:
@@ -70,9 +81,9 @@ class TitleState(BaseState):
         elif option == "High Scores":
             from .high_score import HighScoreState
             self.game.change_state(HighScoreState(self.game, self.font))
-        elif option == "Exit":
-            pygame.quit()
-            exit()
+        elif option == "Settings":
+            from .settings_state import SettingsState
+            self.game.change_state(SettingsState(self.game, self.font, previous_state=self))
 
     def draw(self, screen):
         self.draw_background(screen)
@@ -116,7 +127,20 @@ class TitleState(BaseState):
         
         screen.blit(title_surf, (SCREEN_WIDTH // 2 - tw // 2, SCREEN_HEIGHT // 4 - th // 2))
 
-        if self.state == "MENU" and self.active_menu:
+        if self.state == "PRESS_START":
+            # Pulsing logic
+            import math
+            alpha = int(128 + 127 * math.sin(self.pulse_time * 5))
+            prompt = "Press ENTER to Start"
+            pw, ph = self.font.size(prompt)
+            
+            # Draw pulsing text
+            prompt_surf = pygame.Surface((pw + 10, ph + 10), pygame.SRCALPHA)
+            draw_text_outlined(prompt_surf, prompt, self.font, COLOR_GOLD, 5, 5)
+            prompt_surf.set_alpha(alpha)
+            screen.blit(prompt_surf, (SCREEN_WIDTH // 2 - pw // 2, SCREEN_HEIGHT * 2 // 3))
+
+        elif self.state == "MENU" and self.active_menu:
             self.active_menu.draw(screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT * 2 // 3)
             
         elif self.state == "NAMING":

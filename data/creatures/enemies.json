@@ -1,5 +1,6 @@
 {
     "kobold": {
+        "level": 1,
         "hp": 6,
         "armor": 6,
         "die": 4,
@@ -8,13 +9,14 @@
         "attack_count": 1,
         "xp": 100,
         "reward": {
-            "gold": 5,
+            "gold": 2,
             "items": [
                 {"name": "loincloth", "type": "junk"}
             ]
         }
     },
     "kobold_slinger": {
+        "level": 1,
         "hp": 4,
         "armor": 5,
         "die": 4,
@@ -22,8 +24,9 @@
         "attack_range": 5,
         "attack_count": 1,
         "xp": 100,
+        "skills": ["sling_shot"],
         "reward": {
-            "gold": 5,
+            "gold": 2,
             "items": [
                 {"name": "sling", "type": "weapon"},
                 {"name": "loincloth", "type": "junk"}
@@ -31,39 +34,43 @@
         }
     },
     "skeleton": {
+        "level": 1,
         "hp": 8,
         "armor": 8,
         "die": 6,
         "bonus": 2,
         "attack_range": 1,
         "attack_count": 1,
-        "xp": 110,
+        "xp": 120,
+        "skills": ["bone_toss"],
         "reward": {
-            "gold": 2,
+            "gold": 3,
             "items": [
                 {"name": "bone", "type": "junk"},
-                {"name": "rusty_sword", "type": "weapon"}
+                {"name": "rusty_sword", "type": "junk"}
             ]
         }
     },
     "kobold_sorcerer":{
-        "hp": 10,
+        "level": 2,
+        "hp": 12,
         "armor": 6,
         "die": 6,
         "bonus": 2,
         "attack_range": 5,
         "attack_count": 1,
         "xp": 150,
-        "spells": ["magic_missile", "acid_splash"],
+        "spells": ["magic_missile", "lesser_heal"],
         "reward": {
             "gold": 10,
             "items": [
                 {"name": "staff", "type": "weapon"},
-                {"name": "tattered robes", "type": "junk"}
+                {"name": "tattered_robes", "type": "junk"}
             ]
         }
     },
     "goblin": {
+        "level": 2,
         "hp": 10,
         "armor": 7,
         "die": 6,
@@ -71,6 +78,7 @@
         "attack_range": 1,
         "attack_count": 1,
         "xp": 125,
+        "skills": ["hunters_mark"],
         "reward": {
             "gold": 8,
             "items": [
@@ -80,6 +88,7 @@
         }
     },
     "goblin_archer": {
+        "level": 2,
         "hp": 8,
         "armor": 6,
         "die": 6,
@@ -87,6 +96,7 @@
         "attack_range": 5,
         "attack_count": 1,
         "xp": 125,
+        "skills": ["hunters_mark"],
         "reward": {
             "gold": 8,
             "items": [
@@ -96,14 +106,15 @@
         }
     },
     "cultist": {
-        "hp": 12,
+        "level": 3,
+        "hp": 14,
         "armor": 10,
         "die": 4,
         "bonus": 3,
         "attack_range": 1,
         "attack_count": 1,
         "xp": 150,
-        "spells": ["inflict_wounds", "sacred_flame"],
+        "spells": ["inflict_wounds", "lesser_heal"],
         "reward": {
             "gold": 12,
             "items": [
@@ -113,7 +124,8 @@
         }
     },
     "harpy": {
-        "hp": 15,
+        "level": 3,
+        "hp": 18,
         "armor": 11,
         "die": 6,
         "bonus": 4,
@@ -130,7 +142,8 @@
         }
     },
     "thief": {
-        "hp": 14,
+        "level": 4,
+        "hp": 15,
         "armor": 10,
         "die": 8,
         "bonus": 4,
@@ -138,6 +151,8 @@
         "attack_count": 1,
         "xp": 150,
         "skills": ["sneak_attack"],
+        "sneak_attack_die": 6,
+        "sneak_attack_rolls": 3,
         "reward": {
             "gold": 20,
             "items": [
@@ -147,6 +162,7 @@
         }
     },
     "goblin_chieften": {
+        "level": 4,
         "hp": 20,
         "armor": 8,
         "die": 8,
@@ -154,7 +170,7 @@
         "attack_range": 2,
         "attack_count": 1,
         "xp": 175,
-        "skills": ["warchant"],
+        "skills": ["heavy_strikes"],
         "reward": {
             "gold": 16,
             "items": [
@@ -164,14 +180,17 @@
         }
     },
     "assassin": {
-        "hp": 16,
+        "level": 5,
+        "hp": 18,
         "armor": 10,
         "die": 8,
         "bonus": 5,
         "attack_range": 5,
         "attack_count": 1,
         "xp": 180,
-        "skills": ["poison_strike"],
+        "skills": ["poison_strike", "smoke_bomb"],
+        "sneak_attack_die": 6,
+        "sneak_attack_rolls": 4,
         "reward": {
             "gold": 25,
             "items": [
@@ -181,6 +200,7 @@
         }
     },
     "guard": {
+        "level": 5,
         "hp": 20,
         "armor": 12,
         "die": 8,
@@ -188,6 +208,7 @@
         "attack_range": 1,
         "attack_count": 2,
         "xp": 200,
+        "skills": ["heavy_strikes", "shield_bash"],
         "reward": {
             "gold": 25,
             "items": [
@@ -197,6 +218,7 @@
         }
     },
     "orc_warrior": {
+        "level": 6,
         "hp": 25,
         "armor": 11,
         "die": 10,
@@ -204,6 +226,7 @@
         "attack_range": 1,
         "attack_count": 1,
         "xp": 250,
+        "skills": ["heavy_strikes", "cleave"],
         "reward": {
             "gold": 20,
             "items": [
@@ -213,6 +236,7 @@
         }
     },
     "guard_captain": {
+        "level": 8,
         "hp": 30,
         "armor": 14,
         "die": 10,
@@ -220,7 +244,7 @@
         "attack_range": 2,
         "attack_count": 2,
         "xp": 400,
-        "skills": ["command"],
+        "skills": ["heavy_strikes", "indomitable"],
         "reward": {
             "gold": 50,
             "items": [
@@ -230,6 +254,7 @@
         }
     },
     "minotaur": {
+        "level": 10,
         "hp": 45,
         "armor": 12,
         "die": 12,
@@ -247,6 +272,7 @@
         }
     },
     "medusa": {
+        "level": 12,
         "hp": 55,
         "armor": 15,
         "die": 8,
@@ -265,6 +291,7 @@
         }
     },
     "dark_knight": {
+        "level": 15,
         "hp": 70,
         "armor": 18,
         "die": 10,
@@ -272,7 +299,7 @@
         "attack_range": 1,
         "attack_count": 2,
         "xp": 1000,
-        "spells": ["vampiric_touch", "darkness"],
+        "spells": ["vampiric_touch", "darkness", "greater_heal"],
         "reward": {
             "gold": 150,
             "items": [
@@ -282,6 +309,7 @@
         }
     },
     "chimera": {
+        "level": 17,
         "hp": 100,
         "armor": 14,
         "die": 8,
@@ -299,6 +327,7 @@
         }
     },
     "ancient_dragon": {
+        "level": 20,
         "hp": 250,
         "armor": 20,
         "die": 12,
@@ -307,7 +336,7 @@
         "attack_count": 3,
         "xp": 5000,
         "skills": ["dragon_breath", "wing_buffet"],
-        "spells": ["fire_storm", "meteor_swarm"],
+        "spells": ["fire_storm", "meteor_swarm", "greater_heal"],
         "reward": {
             "gold": 2000,
             "items": [

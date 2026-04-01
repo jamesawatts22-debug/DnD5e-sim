@@ -6,6 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from core.game_rules.game_manager import GameManager
+from core.game_rules.music_manager import MusicManager
 from interfaces.pygame.states.title import TitleState
 from core.game_rules.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, COLOR_BG, DEFAULT_FONT_SIZE, scale_font 
 
@@ -17,7 +18,13 @@ screen.fill(COLOR_BG)
 pygame.display.set_caption("Valor - 5e RPG Simulator")
 font = pygame.font.SysFont(None, scale_font(DEFAULT_FONT_SIZE))
 
-game = GameManager()
+# Initialize Music and Game managers
+music_manager = MusicManager()
+game = GameManager(music_manager=music_manager)
+
+# Start title music immediately
+music_manager.play_state_music('title')
+
 game.change_state(TitleState(game, font))
 
 while True:

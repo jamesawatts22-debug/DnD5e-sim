@@ -45,6 +45,14 @@ class CombatState(BaseState):
         for e in self.enemies:
             e["current_hp"] = int(e.get("current_hp", e.get("hp", 10)))
             e["max_hp"] = int(e.get("hp", 10))
+            
+            # Initialize Resources
+            e["max_sp"] = 10
+            e["current_sp"] = 0
+            e["max_mp"] = 10
+            e["current_mp"] = 0
+            e["has_healed"] = False
+            
             e.setdefault("conditions", {})
 
         # --- Combat stats ---
@@ -371,12 +379,65 @@ class CombatState(BaseState):
         self.start_next_message()
 
     def handle_enemy_turn(self):
+        from core.combat.enemy_ai import EnemyAI
+        
         for i, enemy in enumerate(self.enemies):
             if enemy["current_hp"] > 0:
+                # 1. Generate Resources (+1 SP, +1 MP)
+                enemy["current_sp"] = min(enemy["max_sp"], enemy.get("current_sp", 0) + 1)
+                enemy["current_mp"] = min(enemy["max_mp"], enemy.get("current_mp", 0) + 1)
+                
+                # 2. Check Conditions
                 if enemy.get('conditions', {}).get('stunned', 0) > 0:
                     self.queue_message(f"{enemy['name']} is stunned and skips their turn!")
                     enemy['conditions']['stunned'] -= 1
+                    continue
+                
+                # 3. Decide Action
+                action = EnemyAI.decide_action(enemy)
+                
+                if action['type'] == 'ability':
+                    # Execute Ability
+                    ability_data = action['data']
+                    
+                    # Decide targets
+                    if ability_data.get('type') == 'heal':
+                        # Heal self
+                        targets = [enemy]
+                    elif ability_data.get('aoe'):
+                        # Hit player? (In this simple 1vX, AOE just hits player)
+                        targets = [self.player]
+                    else:
+                        targets = [self.player]
+                        
+                    res = CombatEngine.resolve_ability(ability_data, enemy, targets)
+                    
+                    # Deduct cost
+                    cost = res.get('mana_cost', 0)
+                    resource = ability_data.get('resource', 'mp')
+                    enemy[f'current_{resource}'] -= cost
+                    
+                    # Apply results
+                    if res['damage'] > 0:
+                        self.player_hp = max(0, self.player_hp - res['damage'])
+                    if res['healing'] > 0:
+                        enemy['current_hp'] = min(enemy['max_hp'], enemy['current_hp'] + res['healing'])
+                        
+                    # Queue message
+                    self.queue_message(f"{enemy['name']} uses {action['name']}!")
+                    self.queue_message(res['msg'])
+                    
+                    # Apply effects to player
+                    for effect, val in res['effects']:
+                        if effect == 'player_advantage': self.enemy_advantage = val
+                        elif effect == 'enemy_advantage': self.player_advantage = val
+                        elif effect == 'stunned':
+                            self.player_conditions['stunned'] = val
+                            self.queue_message("You are stunned!")
+                        elif effect == 'msg': self.queue_message(val)
+                
                 else:
+                    # Default Attack
                     self.enemy_attack(enemy, i)
 
         self.start_next_message()
@@ -651,24 +712,47 @@ class CombatState(BaseState):
         if player_sprite:
             screen.blit(player_sprite, (scale_x(0), SCREEN_HEIGHT // 2 - scale_y(128)))
 
-        ex = SCREEN_WIDTH - scale_x(260)
-
+        # --- Enemy HP Bars (2x2 Grid) ---
+        # Column 1 (Right): Indices 0, 1
+        # Column 2 (Left): Indices 2, 3
+        col1_x = SCREEN_WIDTH - scale_x(260)
+        col2_x = SCREEN_WIDTH - scale_x(520)
+        
         for i, enemy in enumerate(self.enemies):
-            y_off = scale_y(50) + (i * scale_y(80))
-            name_str = enemy["name"]
+            # Calculate grid position
+            column = 1 if i < 2 else 2
+            row = i % 2
             
-            # Show conditions
+            ex = col1_x if column == 1 else col2_x
+            # Starting Y: 50, Row height: 120 (to fit HP + SP + MP)
+            y_off = scale_y(50) + (row * scale_y(130))
+            
+            name_str = enemy["name"]
             if enemy.get('conditions'):
                 name_str += f" [{', '.join(enemy['conditions'].keys())}]"
                 
-            tw, th = self.font.size(name_str)
             draw_text_outlined(screen, name_str, self.font, (255,255,255), ex, y_off - scale_y(25))
 
+            # HP Bar
             draw_bar(screen, ex, y_off, scale_x(200), scale_y(25),
                      enemy["current_hp"], enemy["max_hp"], (200,50,50), self.font)
 
+            # Enemy Resource Bars
+            has_sp = len(enemy.get("skills", [])) > 0
+            has_mp = len(enemy.get("spells", [])) > 0
+            
+            if has_mp:
+                from core.game_rules.constants import COLOR_BLUE
+                draw_bar(screen, ex, y_off + scale_y(30), scale_x(200), scale_y(20),
+                         enemy["current_mp"], enemy["max_mp"], COLOR_BLUE, self.font)
+            
+            if has_sp:
+                from core.game_rules.constants import COLOR_YELLOW
+                y_gap = scale_y(55) if has_mp else scale_y(30)
+                draw_bar(screen, ex, y_off + y_gap, scale_x(200), scale_y(20),
+                         enemy["current_sp"], enemy["max_sp"], COLOR_YELLOW, self.font)
+
             # Draw Enemy Sprite
-            # We use the name to look up the sprite (lowercased)
             enemy_key = enemy["name"].lower().replace(" ", "_")
             # Handle A/B/C suffixes
             if enemy_key[-2:] in ["_a", "_b", "_c"]:
@@ -678,9 +762,14 @@ class CombatState(BaseState):
 
             enemy_sprite = SpriteManager.get_enemy_sprite(enemy_key, size=(scale_x(192), scale_y(192)))
             if enemy_sprite:
-                # Stagger enemies slightly if there are multiple
-                enemy_x = SCREEN_WIDTH - scale_x(250) - (i * scale_x(40))
-                enemy_y = SCREEN_HEIGHT // 2 - scale_y(96) + (i * scale_y(40))
+                # Calculate sprite position based on grid
+                # Column 1 sprites on the right, Column 2 sprites further left
+                base_enemy_x = SCREEN_WIDTH - scale_x(250)
+                if column == 2:
+                    base_enemy_x -= scale_x(300)
+                
+                enemy_x = base_enemy_x - (row * scale_x(40))
+                enemy_y = SCREEN_HEIGHT // 2 - scale_y(96) + (row * scale_y(100))
                 
                 # Darken dead enemies or apply visual for stunned
                 is_stunned = enemy.get('conditions', {}).get('stunned', 0) > 0
@@ -689,7 +778,6 @@ class CombatState(BaseState):
                     enemy_sprite = enemy_sprite.copy()
                     enemy_sprite.fill((50, 50, 50, 255), special_flags=pygame.BLEND_RGBA_MULT)
                 elif is_stunned:
-                    # Tint yellowish for stunned?
                     enemy_sprite = enemy_sprite.copy()
                     enemy_sprite.fill((255, 255, 100, 255), special_flags=pygame.BLEND_RGBA_MULT)
                 

@@ -1,0 +1,112 @@
+{
+    "ability_list": {
+        "sling_shot": {
+            "name": "Sling Shot",
+            "cost": 2,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "1d4+1",
+            "effect": "enemy_advantage",
+            "power": -1,
+            "description": "A well-aimed stone that can daze an opponent."
+        },
+        "bone_toss": {
+            "name": "Bone Toss",
+            "cost": 1,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "1d6+2",
+            "description": "The skeleton rips a bone from its body and hurls it."
+        },
+        "allure": {
+            "name": "Allure",
+            "cost": 3,
+            "resource": "sp",
+            "type": "save",
+            "effect": "enemy_advantage",
+            "power": -2,
+            "description": "A magical song that draws the player in, leaving them vulnerable."
+        },
+        "gore": {
+            "name": "Gore",
+            "cost": 4,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "2d12+6",
+            "description": "A brutal thrust with sharp horns."
+        },
+        "charge": {
+            "name": "Charge",
+            "cost": 5,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "3d12+10",
+            "effect": "stunned",
+            "power": 1,
+            "description": "A thundering charge that can stun on impact."
+        },
+        "petrifying_gaze": {
+            "name": "Petrifying Gaze",
+            "cost": 8,
+            "resource": "mp",
+            "type": "save",
+            "effect": "stunned",
+            "power": 2,
+            "description": "A gaze that turns flesh to stone."
+        },
+        "fire_breath": {
+            "name": "Fire Breath",
+            "cost": 5,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "8d6+10",
+            "aoe": true,
+            "description": "A cone of searing flames."
+        },
+        "tail_swipe": {
+            "name": "Tail Swipe",
+            "cost": 3,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "4d8+5",
+            "aoe": true,
+            "description": "A massive sweep of the tail."
+        },
+        "dragon_breath": {
+            "name": "Dragon Breath",
+            "cost": 10,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "15d10+50",
+            "aoe": true,
+            "description": "The ultimate destructive force of a dragon."
+        },
+        "wing_buffet": {
+            "name": "Wing Buffet",
+            "cost": 5,
+            "resource": "sp",
+            "type": "attack",
+            "dice": "6d10+20",
+            "aoe": true,
+            "effect": "enemy_advantage",
+            "power": -2,
+            "description": "A powerful gust created by massive wings."
+        },
+        "lesser_heal": {
+            "name": "Lesser Heal",
+            "cost": 4,
+            "resource": "mp",
+            "type": "heal",
+            "dice": "2d8+5",
+            "description": "A minor mending of wounds."
+        },
+        "greater_heal": {
+            "name": "Greater Heal",
+            "cost": 8,
+            "resource": "mp",
+            "type": "heal",
+            "dice": "10d8+30",
+            "description": "A powerful restoration of health."
+        }
+    }
+}

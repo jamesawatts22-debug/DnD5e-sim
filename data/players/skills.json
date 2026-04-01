@@ -154,39 +154,78 @@
             "use_attack_count": true,
             "description": "A calculated strike that exploits an opening for massive damage. Scales with your Rogue level."
         },
-        "cunning_action": {
-            "name": "Cunning Action",
-            "cost": 1,
+        "poison_strike": {
+            "name": "Poison Strike",
+            "cost": 2,
             "resource": "sp",
-            "type": "buff",
-            "effect": "player_advantage",
-            "power": 1,
-            "description": "Your quick thinking and agility allow you to move and act quickly."
+            "type": "attack",
+            "use_sneak_dice": true,
+            "use_attack_count": true,
+            "dot": true,
+            "dot_dice": "2d4",
+            "effect":"enemy_advantage",
+            "power": -2,
+            "description": "Strike wiht a poisoned blade, weakening the target for 2 turns"
         },
         "assassinate": {
             "name": "Assassinate",
+            "cost": 4,
+            "resource": "sp",
+            "type": "attack",
+            "use_sneak_dice": true,
+            "use_attack_count": true,
+            "multiplier": 2,
+            "description": "You are at your deadliest when you get the drop on your enemies."
+        },
+        "vital_strike": {
+            "name": "Vital Strike",
             "cost": 3,
             "resource": "sp",
             "type": "attack",
-            "dice": "10d6+20",
-            "description": "You are at your deadliest when you get the drop on your enemies."
+            "dot": true,
+            "dot_dice": "3d4",
+            "description": "Strike an atery and cause the target to bleed."
         },
-        "evasion": {
-            "name": "Evasion",
-            "cost": 2,
+        "smoke_bomb": {
+            "name": "Smoke Bomb",
+            "cost": 4,
             "resource": "sp",
-            "type": "buff",
-            "effect": "enemy_advantage",
-            "power": -1,
-            "description": "You can nimbly dodge out of the way of certain area effects."
+            "type": "save",
+            "aoe": true,
+            "use_sneak_dice": true,
+            "use_attack_count": true,
+            "effect":"enemy_advantage",
+            "power": -2,
+            "description": "Throw an explosive that leaves a cloud of powder in the air, obscuring enemies sight."
+        },
+        "emergency_rations": {
+            "name": "Emergency Rations",
+            "cost": 4,
+            "resource": "sp",
+            "type": "heal",
+            "dice": "5d6",
+            "description": "Scarf down a magical ration of food."
+        },
+        "throwing_knives": {
+            "name": "Throwing Knives",
+            "cost": 6,
+            "resource": "sp",
+            "type": "attack",
+            "aoe": true,
+            "use_sneak_dice": true,
+            "use_attack_count": true,
+            "dot": true,
+            "dot_dice": "3d4",
+            "description": "Thow knives at all enemis, cuasing bleed on hit."
         },
         "death_strike": {
             "name": "Death Strike",
-            "cost": 10,
+            "cost": 6,
             "resource": "sp",
             "type": "auto",
-            "dice": "25d6+50",
-            "hp_threshold": 250,
+            "use_sneak_dice": true,
+            "use_attack_count": true,
+            "multiplier": 2,
             "description": "You become a master of instant death."
         },
         "steady_aim": {

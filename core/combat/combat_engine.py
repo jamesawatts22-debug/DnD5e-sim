@@ -125,7 +125,9 @@ class CombatEngine:
                 current_dice = dice_str
                 if ability_data.get('use_sneak_dice'):
                     num_dice = caster.get('sneak_attack_rolls', 1)
-                    current_dice = f"{num_dice}d6"
+                    # multiplier for empowered skills
+                    multiplier = ability_data.get('multiplier', 1)
+                    current_dice = f"{num_dice * multiplier}d6"
                     w_bonus = caster.get('weapon_bonus', 0)
                     if w_bonus > 0:
                         current_dice += f"+{w_bonus}"

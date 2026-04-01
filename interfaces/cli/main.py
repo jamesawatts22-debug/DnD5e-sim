@@ -47,45 +47,52 @@ def load_skills():
         return {}
 
 def get_scaled_enemies(enemy_data, player_level=1):
-    enemy_names = list(enemy_data.keys())
-    # Current available range for player_level
-    max_index = min(len(enemy_names) - 1, 2 + (player_level * 2))
+    """
+    Budget-based encounter system:
+    Picks enemies until their total level matches the player_level.
+    """
+    budget = player_level
+    encounter = []
+    
+    # Map enemies to names so we can copy them
+    all_enemies = list(enemy_data.items())
+    
+    # Safety: Ensure we have at least level 1 enemies
+    if not any(e[1].get('level', 1) <= player_level for e in all_enemies):
+        # If no enemies are low enough, just pick the weakest one
+        name, stats = all_enemies[0]
+        enemy_instance = stats.copy()
+        enemy_instance['name'] = name.replace('_', ' ').title()
+        return [enemy_instance]
 
-    if max_index < 0:
-        raise ValueError('Enemy data is empty')
-
-    selected_names = enemy_names[0:max_index + 1]
-    enemy_name = random.choice(selected_names)
-    enemy_index = enemy_names.index(enemy_name)
-    
-    enemies = []
-    
-    # Scaling rules:
-    # At level 5, if enemy is from level 1 range (idx <= 4), spawn 2.
-    # At level 10, if from level 1 range, spawn 3. If from level 6 range, spawn 2.
-    
-    spawn_count = 1
-    
-    # Determine the "level range" this enemy belongs to
-    # Enemy for level L has index up to 2 + (L * 2)
-    # So L = (index - 2) / 2
-    enemy_orig_level = max(1, (enemy_index - 2) // 2 + 1)
-    
-    if player_level >= 10:
-        if enemy_orig_level <= player_level - 9: # Level 1 enemies
-            spawn_count = 3
-        elif enemy_orig_level <= player_level - 4: # Level 6 enemies
-            spawn_count = 2
-    elif player_level >= 5:
-        if enemy_orig_level <= player_level - 4: # Level 1 enemies
-            spawn_count = 2
-            
-    for i in range(spawn_count):
-        e_copy = enemy_data[enemy_name].copy()
-        e_copy['name'] = f"{enemy_name} {chr(65+i)}" if spawn_count > 1 else enemy_name
-        enemies.append(e_copy)
+    while budget > 0 and len(encounter) < 4:
+        # Filter enemies we can afford
+        affordable = [e for e in all_enemies if e[1].get('level', 1) <= budget]
         
-    return enemies
+        if not affordable:
+            break
+            
+        # Pick one
+        name, stats = random.choice(affordable)
+        
+        # Create a deep copy
+        enemy_instance = stats.copy()
+        
+        # Check if we already have this enemy type to add a suffix (A, B, C)
+        # Use name-based comparison
+        count = sum(1 for e in encounter if e.get('base_name') == name)
+        enemy_instance['base_name'] = name
+        
+        if count > 0:
+            suffix = f" {chr(65 + count)}"
+            enemy_instance['name'] = name.replace('_', ' ').title() + suffix
+        else:
+            enemy_instance['name'] = name.replace('_', ' ').title()
+        
+        encounter.append(enemy_instance)
+        budget -= stats.get('level', 1)
+        
+    return encounter
 
 
 def choose_enemies(enemy_data, player_level=1):

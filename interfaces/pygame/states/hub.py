@@ -18,7 +18,7 @@ class HubState(BaseState):
         # Get persistent hub background from manager
         self.background = BackgroundManager.get_hub_bg(game.player)
 
-        self.base_options = ["Fight", "Shop", "Blacksmith", "Rest", "Save Game", "Inventory", "Retire"]
+        self.base_options = ["Fight", "Shop", "Blacksmith", "Rest", "Save Game", "Inventory", "Settings", "Retire"]
         options = list(self.base_options)
         if game.god_mode:
             options += ["Level Up", "Invincible"]
@@ -101,6 +101,10 @@ class HubState(BaseState):
         elif option == "Retire":
             from .game_over import GameOverState
             self.game.change_state(GameOverState(self.game, self.font, retired=True))
+
+        elif option == "Settings":
+            from .settings_state import SettingsState
+            self.game.change_state(SettingsState(self.game, self.font, previous_state=self))
 
         elif option == "Rest":
             p = self.game.player

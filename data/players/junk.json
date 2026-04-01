@@ -35,7 +35,7 @@
             "cost": 1,
             "description": "A dry, brittle bone. It might have belonged to someone once."
         },
-        "tattered robes": {
+        "tattered_robes": {
             "name": "Tattered Robes",
             "cost": 2,
             "description": "Worn-out robes from a sorcerer. They smell of ozone and old parchment."

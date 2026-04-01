@@ -185,7 +185,7 @@ def apply_armor_to_player(player_data):
     player_data['trinket_ac_bonus'] = trinket_ac
     
     # 1. Capture OLD max stats to calculate differences
-    old_max_hp = player_data.get('max_hp', player_data.get('hp', 10))
+    old_max_hp = player_data.get('max_hp', 10)
     old_max_mp = player_data.get('max_mp', 0)
     old_max_sp = player_data.get('max_sp', 0)
 
@@ -209,16 +209,14 @@ def apply_armor_to_player(player_data):
     player_data['max_sp'] = new_max_sp
 
     # 5. Adjust CURRENT values by the change in max (prevents "healing" but keeps relative health)
-    # If this is the first initialization, set current = max
     if 'current_hp' not in player_data:
         player_data['current_hp'] = new_max_hp
         player_data['hp'] = new_max_hp
     else:
-        # Increase current HP if max HP increased (from level up or new gear)
         hp_diff = new_max_hp - old_max_hp
         if hp_diff > 0:
             player_data['current_hp'] += hp_diff
-            player_data['hp'] = player_data['current_hp']
+        player_data['hp'] = player_data['current_hp']
         
     if 'current_mp' not in player_data or (old_max_mp == 0 and new_max_mp > 0):
         player_data['current_mp'] = new_max_mp
@@ -244,7 +242,7 @@ def apply_armor_to_player(player_data):
     eq_dmg = armor_stats.get('bonus_dmg', 0) + shield_stats.get('bonus_dmg', 0) + trinket_stats.get('bonus_atk', 0)
     eq_spell_save = armor_stats.get('spell_save', 0) + shield_stats.get('spell_save', 0) + trinket_stats.get('spell_save', 0)
     player_data['equipment_dmg_bonus'] = eq_dmg
-    # Add base spell save from focusing lens if applicable
+    
     upgrades = player_data.get('weapon_upgrades', {}).get(player_data.get('weapon', 'unarmed'), {})
     if upgrades.get('enchantment') == 'focusing_lens':
         eq_spell_save += 1
@@ -289,7 +287,6 @@ def choose_player_class(class_data):
         chosen_data.setdefault('shield', 'none')
         chosen_data.setdefault('trinket', 'none')
 
-        # Apply equipment to show correct stats in confirm screen
         apply_armor_to_player(chosen_data)
 
         print('\nSelected class: ' + chosen_name.title())
