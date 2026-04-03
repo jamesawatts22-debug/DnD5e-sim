@@ -22,9 +22,11 @@ Now I'm migrating to Pygame, and creating something I can also plug API's into a
 9. A save system, complete with three slots
 10. HIGH SCORE! > Key actions are tracked and at the end of the game, a score is given
 11. Sprites have entered the frey > some still need some tweaking 
-
+12. Enemies have been reworked, now planning which ability to use and saving resources for them.
+13. alomg with enemies, encounters now scale with player level, pulling up to 4 enemies into the fray.
+14. valor.exe now available here: https://drive.google.com/drive/folders/17YxxzoRTFG2VOok3hbmiT4EYTFhUklKF
+    
 #   --- FUTURE LAND ---
+
 1. ANIMATIONS > Looking to start simple wiht a flashing animation for "hits", stay tuned ...
 2. API INTEGRATION > learning more about APIs and applying it to this game, stay tuned ...
-3. ENEMY REBALANCE > Currently testing combat for bugs and found the enemeis to be a little to weak / uninteresting. They need to learn some skills and spells
-4. VALOR.exe > A single neat package of the game ready for download, just a short handful of features, bugfixes, and playutesting away from release.
